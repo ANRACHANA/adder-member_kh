@@ -56,16 +56,8 @@ while(process.env[`TG_ACCOUNT_${i}_PHONE`]){
   const api_hash=process.env[`TG_ACCOUNT_${i}_API_HASH`]
   const session=process.env[`TG_ACCOUNT_${i}_SESSION`]
   const phone=process.env[`TG_ACCOUNT_${i}_PHONE`]
-
   if(!api_id||!api_hash||!session){i++; continue}
-
-  const account={
-    phone, api_id, api_hash, session,
-    id:`TG_ACCOUNT_${i}`,
-    status:"pending",
-    floodWaitUntil:null
-  }
-
+  const account={phone, api_id, api_hash, session, id:`TG_ACCOUNT_${i}`, status:"pending", floodWaitUntil:null}
   accounts.push(account)
   saveAccountToFirebase(account)
   i++
@@ -145,6 +137,7 @@ async function autoCheck(){
   for(const acc of accounts){
     await refreshAccountStatus(acc)
     await checkTGAccount(acc)
+    await sleep(2000)
   }
 }
 setInterval(autoCheck,60000)
@@ -168,13 +161,6 @@ async function autoJoin(client, group){
   }
 }
 
-// ===== Check if member exists in history =====
-async function isInHistory(user_id, username){
-  const snap = await get(ref(db,'history'))
-  const data = snap.val() || {}
-  return Object.values(data).some(e => e.user_id===user_id || e.username===username)
-}
-
 // ===== Members (Batch) =====
 app.post('/members',async(req,res)=>{
   try{
@@ -191,77 +177,101 @@ app.post('/members',async(req,res)=>{
       access_hash:p.access_hash,
       avatar:`https://t.me/i/userpic/320/${p.id}.jpg`
     }))
-    res.json({
-      members,
-      nextOffset:offset+participants.length,
-      hasMore:participants.length===limit
-    })
+    res.json({members, nextOffset:offset+participants.length, hasMore:participants.length===limit})
   }catch(err){
     res.json({error:err.message})
   }
 })
 
-// ===== Add Member (Skip History, No Delay) =====
+// ===== Add Member =====
 app.post('/add-member',async(req,res)=>{
   try{
     const {username,user_id,access_hash,targetGroup}=req.body
-
-    // ✅ Skip member if already in history
-    if(await isInHistory(user_id, username)){
-      return res.json({status:"skip",reason:"Already in history",accountUsed:"none"})
-    }
-
     const acc=getAvailableAccount()
     if(!acc) return res.json({status:"failed",reason:"All FloodWait",accountUsed:"none"})
-
     const client=await getClient(acc)
     await autoJoin(client,targetGroup)
-
     let status="failed", reason="unknown"
-
     try{
       let userEntity
       if(username) userEntity=await client.getEntity(username)
       else userEntity=new Api.InputUser({userId:user_id, accessHash:BigInt(access_hash)})
-
       const group=await client.getEntity(targetGroup)
-      await client.invoke(new Api.channels.InviteToChannel({
-        channel:group,
-        users:[userEntity]
-      }))
-
-      status="success"
-      reason="joined"
-
-      // ❌ Remove delay for ultra-fast add
-      // await sleep(30000 + Math.floor(Math.random()*10000))
-
+      await client.invoke(new Api.channels.InviteToChannel({channel:group, users:[userEntity]}))
+      status="success"; reason="joined"
+      await sleep(30000 + Math.floor(Math.random()*10000))
     }catch(err){
       const wait=parseFlood(err)
       if(wait){
         const until=Date.now()+wait*1000
         acc.floodWaitUntil=until
         acc.status="floodwait"
-        await update(ref(db,`accounts/${acc.id}`),{
-          status:"floodwait",
-          floodWaitUntil:until
-        })
-        reason=`FloodWait ${wait}s | Ready ${new Date(until).toLocaleString()}`
+        await update(ref(db,`accounts/${acc.id}`),{status:"floodwait",floodWaitUntil:until})
+        const ready=new Date(until).toLocaleString()
+        reason=`FloodWait ${wait}s | Ready ${ready}`
       }else{
         reason=err.message
       }
     }
-
     await push(ref(db,'history'),{
       username,user_id,status,reason,
       accountUsed:acc.id,
       timestamp:Date.now()
     })
-
     res.json({status,reason,accountUsed:acc.id})
-
   }catch(err){
     res.json({status:"failed",reason:err.message,accountUsed:"unknown"})
+  }
+})
+
+// ===== Batch Check History =====
+app.post('/check-history', async (req, res) => {
+  try{
+    const { members } = req.body
+    if(!Array.isArray(members) || members.length===0) return res.json({checked:[]})
+    const snap = await get(ref(db,'history'))
+    const data = snap.val() || {}
+    const checked = members.map(m => {
+      const exists = Object.values(data).some(e=> 
+        (m.username && e.username===m.username) || (m.user_id && e.user_id===m.user_id)
+      )
+      return {...m, exists}
+    })
+    res.json({checked})
+  }catch(err){
+    res.json({checked:[], error:err.message})
+  }
+})
+
+// ===== Add Account =====
+app.post('/add-account',async(req,res)=>{
+  try{
+    const {phone, api_id, api_hash, session}=req.body
+    if(!phone||!api_id||!api_hash||!session) return res.json({status:"failed",reason:"Missing fields"})
+    const id=`TG_${Date.now()}`
+    const account={phone,api_id:Number(api_id),api_hash,session,id,status:"active",floodWaitUntil:null}
+    const saved=await saveAccountToFirebase(account)
+    if(!saved) return res.json({status:"skipped",reason:"Duplicate"})
+    accounts.push(account)
+    res.json({status:"success",account})
+  }catch(err){
+    res.json({status:"failed",reason:err.message})
+  }
+})
+
+// ===== Upload Accounts =====
+app.post('/upload-accounts',async(req,res)=>{
+  try{
+    const {accountsList}=req.body
+    let success=0, skipped=0
+    for(const acc of accountsList){
+      const account={phone:acc.phone,api_id:Number(acc.api_id),api_hash:acc.api_hash,session:acc.session,id:`TG_${Date.now()}_${Math.random()}`,status:"active",floodWaitUntil:null}
+      const saved=await saveAccountToFirebase(account)
+      if(saved){ accounts.push(account); success++ } else skipped++
+    }
+    res.json({status:"done",success,skipped})
+  }catch(err){
+    res.json({status:"failed",reason:err.message})
   }
 })
 
