@@ -5,244 +5,230 @@
 <title>Telegram Auto-Add PRO MAX 🚀</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono&display=swap" rel="stylesheet">
-
 <style>
 *{box-sizing:border-box;}
-body{margin:0;background:#0f0f10;color:#fff;font-family:'JetBrains Mono',monospace;}
-.container{max-width:1200px;margin:auto;padding:15px;}
-
-nav{display:flex;gap:10px;margin-bottom:15px;}
-nav button{
-  flex:1;
-  padding:12px;
-  border:none;
-  border-radius:10px;
-  font-weight:700;
-  cursor:pointer;
-  background:#1e1e2a;
-  color:#00ff7f;
-}
-nav button.active{background:#00ff7f;color:#000;}
-
-section{background:#1e1e2a;padding:15px;border-radius:15px;margin-bottom:15px;}
-.card-title{text-align:center;color:#00ff7f;font-size:20px;margin-bottom:10px;}
-
-input{
-  width:100%;
-  padding:10px;
-  border:none;
-  border-radius:10px;
-  background:#111;
-  color:#fff;
-  margin-top:10px;
-}
-
-.btn-row{display:flex;gap:10px;margin-top:10px;}
-.btn-row button{
-  flex:1;
-  padding:12px;
-  border:none;
-  border-radius:10px;
-  font-weight:700;
-  cursor:pointer;
-}
-
-.start{background:#00ff7f;color:#000;}
-.stop{background:#ff4c4c;color:#fff;}
-.clear{background:#555;color:#fff;}
-
-.summary{display:flex;gap:15px;margin-top:10px;font-weight:700;}
+body{font-family:'JetBrains Mono',monospace;background:#0f0f10;color:#fff;margin:0;}
+.container{max-width:1000px;margin:auto;padding:15px;}
+section{background:#1e1e2a;border-radius:20px;padding:20px;margin-bottom:20px;}
+.card-title{font-size:22px;font-weight:700;color:#00ff7f;text-align:center;margin-bottom:10px;}
+input,select{width:100%;padding:10px;margin-top:10px;border-radius:10px;background:#111;color:#fff;border:none;}
+button{width:100%;padding:12px;margin-top:10px;border:none;border-radius:10px;background:#00ff7f;font-weight:700;cursor:pointer;}
+button:hover{background:#00cc66;color:#fff;}
+.success{color:#00ff7f;}
+.failed{color:#ff4c4c;}
+.skipped{color:#ffcc00;}
+.avatar{width:25px;height:25px;border-radius:50%;}
+ul{list-style:none;padding:0;max-height:300px;overflow-y:auto;}
+.console{background:#111;padding:10px;border-radius:10px;height:150px;overflow:auto;font-size:12px;}
 .progress-bar{background:#111;height:10px;border-radius:10px;margin-top:10px;}
 .progress{background:#00ff7f;height:10px;width:0%;border-radius:10px;}
 
-ul{list-style:none;padding:0;max-height:300px;overflow:auto;}
-.avatar{width:30px;height:30px;border-radius:50%;margin-right:5px;vertical-align:middle;}
-.success{color:#00ff7f;}
-.failed{color:#ff4c4c;}
+/* Top bar */
+.top-bar{display:flex;justify-content:space-around;margin-bottom:20px;}
+.bar-btn{padding:12px;border:none;border-radius:10px;background:#00ff7f;font-weight:700;cursor:pointer;color:#111;transition:0.2s;}
+.bar-btn:hover{background:#00cc66;color:#fff;}
+.active-bar{background:#ffcc00 !important;color:#111 !important;}
 
-.console{background:#111;padding:10px;border-radius:10px;height:120px;overflow:auto;font-size:12px;margin-top:10px;}
-
-.account-dashboard{display:flex;flex-wrap:wrap;gap:10px;}
-.account-card{padding:10px;border-radius:12px;width:180px;color:#000;}
-.active-card{background:#00ff7f;}
-.flood-card{background:#ffcc00;}
-.error-card{background:#ff4c4c;}
+/* Summary */
+.summary{display:flex;justify-content:space-around;margin-top:10px;}
+.summary div{padding:10px;background:#111;border-radius:10px;width:30%;text-align:center;}
+.summary div span{display:block;font-size:22px;margin-top:5px;}
 </style>
 </head>
-
 <body>
+
 <div class="container">
 
-<!-- NAV -->
-<nav>
-  <button id="tabAuto" class="active">AUTO ADD</button>
-  <button id="tabHistory">HISTORY</button>
-  <button id="tabAccounts">ACCOUNTS</button>
-</nav>
+  <!-- Top Bar -->
+  <div class="top-bar">
+    <button id="btn-auto" class="bar-btn active-bar">Auto Add</button>
+    <button id="btn-history" class="bar-btn">History / Summary</button>
+  </div>
 
-<!-- AUTO -->
-<section id="autoSection">
-<div class="card-title">Auto Add Members</div>
+  <!-- Auto Add Section -->
+  <section id="auto-section">
+    <div class="card-title">Auto Add Members</div>
+    <input id="source" placeholder="Source Group">
+    <input id="target" placeholder="Target Group">
+    <button id="start">START AUTO ADD</button>
 
-<input id="source" placeholder="Source Group">
-<input id="target" placeholder="Target Group">
+    <div id="status"></div>
+    <div id="counter">0</div>
 
-<div class="btn-row">
-  <button id="start" class="start">🚀 START</button>
-  <button id="stop" class="stop">⛔ STOP</button>
-  <button id="clear" class="clear">🧹 CLEAR</button>
-</div>
+    <div class="progress-bar"><div id="progress" class="progress"></div></div>
 
-<div class="summary">
-  <div>Total: <span id="total">0</span></div>
-  <div>Success: <span id="success">0</span></div>
-  <div>Failed: <span id="failed">0</span></div>
-</div>
+    <ul id="list"></ul>
+    <div class="console" id="console"></div>
+  </section>
 
-<div class="progress-bar">
-  <div id="progress" class="progress"></div>
-</div>
+  <!-- History Section -->
+  <section id="history-section" style="display:none;">
+    <div class="card-title">History / Summary</div>
+    
+    <!-- Summary Dashboard -->
+    <div class="summary">
+      <div>Success <span id="sum-success">0</span></div>
+      <div>Failed <span id="sum-failed">0</span></div>
+      <div>Skipped <span id="sum-skipped">0</span></div>
+    </div>
 
-<ul id="list"></ul>
-<div class="console" id="console"></div>
-</section>
-
-<!-- HISTORY -->
-<section id="historySection" style="display:none;">
-<div class="card-title">History</div>
-<ul id="historyList"></ul>
-</section>
-
-<!-- ACCOUNTS -->
-<section id="accountSection" style="display:none;">
-<div class="card-title">Accounts Dashboard</div>
-<div id="accounts" class="account-dashboard"></div>
-</section>
+    <ul id="history-list"></ul>
+  </section>
 
 </div>
 
 <script>
-let running=false
-let offset=0,total=0,success=0,failed=0
+const autoSection = document.getElementById('auto-section')
+const historySection = document.getElementById('history-section')
+const btnAuto = document.getElementById('btn-auto')
+const btnHistory = document.getElementById('btn-history')
 
-const logBox=document.getElementById("console")
+const list = document.getElementById("list")
+const consoleBox = document.getElementById("console")
+const status = document.getElementById("status")
+const counter = document.getElementById("counter")
+const progress = document.getElementById("progress")
+
+const historyList = document.getElementById("history-list")
+const sumSuccess = document.getElementById("sum-success")
+const sumFailed = document.getElementById("sum-failed")
+const sumSkipped = document.getElementById("sum-skipped")
+
+let offset=0, total=0, accIndex=0
+
 function log(msg){
-  logBox.innerHTML+=msg+"<br>"
-  logBox.scrollTop=logBox.scrollHeight
+  consoleBox.innerHTML+=msg+"<br>"
+  consoleBox.scrollTop=consoleBox.scrollHeight
 }
 
-// TABS
-tabAuto.onclick=()=>show("auto")
-tabHistory.onclick=()=>{show("history");loadHistory()}
-tabAccounts.onclick=()=>{show("accounts");loadAccounts()}
-
-function show(tab){
-  autoSection.style.display=tab==="auto"?"block":"none"
-  historySection.style.display=tab==="history"?"block":"none"
-  accountSection.style.display=tab==="accounts"?"block":"none"
+// ===== Bar Button Switch =====
+btnAuto.onclick = () => {
+  autoSection.style.display = 'block'
+  historySection.style.display = 'none'
+  btnAuto.classList.add('active-bar')
+  btnHistory.classList.remove('active-bar')
 }
 
-// API
-async function getMembers(group){
-  const r=await fetch("/members",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({group,offset,limit:20})})
-  return await r.json()
+btnHistory.onclick = async () => {
+  autoSection.style.display = 'none'
+  historySection.style.display = 'block'
+  btnHistory.classList.add('active-bar')
+  btnAuto.classList.remove('active-bar')
+  await loadHistory()
 }
 
-async function checkHistory(members){
-  const r=await fetch("/check-history",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({members})})
-  return (await r.json()).checked
+// ===== Load History & Summary =====
+async function loadHistory(){
+  const res = await fetch('/history')
+  const data = await res.json()
+  historyList.innerHTML = ''
+
+  let success=0, failed=0, skipped=0
+
+  for(const key in data){
+    const h = data[key]
+    const li = document.createElement('li')
+    let statusClass = h.status==='success'?'success':h.status==='failed'?'failed':'skipped'
+    li.innerHTML = `
+      ${h.username || h.user_id} → <span class="${statusClass}">${h.status}</span>
+      (${h.accountUsed}) | ${new Date(h.timestamp).toLocaleString()}
+    `
+    historyList.appendChild(li)
+
+    // Count for summary
+    if(h.status==='success') success++
+    else if(h.status==='failed') failed++
+    else skipped++
+  }
+
+  sumSuccess.innerText = success
+  sumFailed.innerText = failed
+  sumSkipped.innerText = skipped
 }
 
-async function addMember(m){
-  const r=await fetch("/add-member",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(m)})
-  return await r.json()
-}
+// ===== AUTO ADD LOGIC (SAME AS BEFORE) =====
+document.getElementById("start").onclick = async ()=>{
+  const source = document.getElementById("source").value.trim()
+  const target = document.getElementById("target").value.trim()
+  if(!source || !target) return alert("Enter group")
 
-// START
-start.onclick=async()=>{
-  running=true
-  offset=0
-  total=success=failed=0
-  list.innerHTML=""
-  logBox.innerHTML=""
+  offset=0; total=0; accIndex=0
+  list.innerHTML=""; consoleBox.innerHTML=""
 
-  const source=source.value.trim()
-  const target=target.value.trim()
-  if(!source||!target) return alert("Enter group")
+  while(true){
+    status.innerText="Fetching 10 members..."
+    const res = await fetch("/members",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({group:source, offset, limit:10})
+    })
+    const data = await res.json()
+    if(data.error){ alert(data.error); break }
+    const members = data.members || []
+    if(members.length===0){ status.innerText="No more members"; break }
+    offset = data.nextOffset
 
-  while(running){
-    const data=await getMembers(source)
-    if(!data.members.length) break
+    const accountsRes = await fetch('/account-status')
+    const accountsData = await accountsRes.json()
 
-    offset=data.nextOffset
-    const checked=await checkHistory(data.members)
-    const toAdd=checked.filter(m=>!m.exists)
+    status.innerText="Adding batch..."
+    for(const m of members){
+      const keys = Object.keys(accountsData)
+      let acc=null
+      const now = Date.now()
+      for(let i=0;i<keys.length;i++){
+        const tmp = accountsData[keys[(accIndex+i)%keys.length]]
+        if(tmp.status==="active" && (!tmp.floodWaitUntil || tmp.floodWaitUntil<now)){
+          acc = tmp
+          accIndex=(accIndex+i+1)%keys.length
+          break
+        }
+      }
+      if(!acc){
+        status.innerText="All accounts FloodWait..."
+        await new Promise(r=>setTimeout(r,2000))
+        continue
+      }
 
-    for(const m of toAdd){
-      if(!running) break
+      const nowTime = new Date().toLocaleTimeString()
+      log(`[${nowTime}] ${acc.id} → ${m.username||m.user_id}`)
 
-      const res=await addMember({...m,targetGroup:target})
+      const addRes = await fetch("/add-member",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          username:m.username,
+          user_id:m.user_id,
+          access_hash:m.access_hash,
+          targetGroup:target
+        })
+      })
+      const result = await addRes.json()
 
-      const li=document.createElement("li")
-      li.innerHTML=`<img class="avatar" src="${m.avatar}" onerror="this.src='https://via.placeholder.com/40?text=U'">
-      ${m.username||m.user_id} → <span class="${res.status==="success"?"success":"failed"}">${res.status}</span>`
+      const li = document.createElement("li")
+      li.innerHTML = `
+        <img class="avatar" src="${m.avatar}" onerror="this.src='https://via.placeholder.com/40?text=U'">
+        ${m.username||m.user_id} → <span class="${result.status==='success'?'success':result.status==='failed'?'failed':'skipped'}">${result.status}</span>
+        (${result.accountUsed})
+      `
       list.appendChild(li)
 
       total++
-      if(res.status==="success"){success++; await new Promise(r=>setTimeout(r,20000))}
-      else failed++
+      counter.innerText = total
+      progress.style.width = (total%100)+"%"
+    }
 
-      totalBox.innerText=total
-      successBox.innerText=success
-      failedBox.innerText=failed
-      progress.style.width=(total%100)+"%"
+    // Optional delay between batches
+    let wait=5
+    while(wait>0){
+      status.innerText=`Next batch in ${wait}s...`
+      await new Promise(r=>setTimeout(r,1000))
+      wait--
     }
   }
-  log("✅ Done")
+
+  status.innerText="Finished ✅"
 }
-
-// STOP
-stop.onclick=()=>{running=false;log("⛔ Stopped")}
-
-// CLEAR
-clear.onclick=()=>{
-  list.innerHTML=""
-  logBox.innerHTML=""
-  totalBox.innerText=successBox.innerText=failedBox.innerText="0"
-  progress.style.width="0%"
-}
-
-// HISTORY
-async function loadHistory(){
-  const r=await fetch("/history")
-  const data=await r.json()
-  historyList.innerHTML=""
-  Object.values(data).forEach(h=>{
-    const li=document.createElement("li")
-    li.innerHTML=`${h.username||h.user_id} → ${h.status} (${h.accountUsed})<br><small>${h.reason}</small>`
-    historyList.appendChild(li)
-  })
-}
-
-// ACCOUNTS
-async function loadAccounts(){
-  const r=await fetch("/account-status")
-  const data=await r.json()
-  accounts.innerHTML=""
-  Object.values(data).forEach(acc=>{
-    const div=document.createElement("div")
-    let cls="account-card active-card"
-    if(acc.status==="floodwait") cls="account-card flood-card"
-    if(acc.status==="error") cls="account-card error-card"
-
-    div.className=cls
-    div.innerHTML=`<b>${acc.phone}</b><br>${acc.status}<br>
-    ${acc.floodWaitUntil?new Date(acc.floodWaitUntil).toLocaleString():""}`
-    accounts.appendChild(div)
-  })
-}
-
-setInterval(()=>{ if(accountSection.style.display==="block") loadAccounts() },5000)
 </script>
 
 </body>
