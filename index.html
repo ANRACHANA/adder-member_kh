@@ -11,28 +11,25 @@ body{font-family:Arial;background:#0f0f10;color:#fff;margin:0;}
 .nav{display:flex;background:#111;padding:10px;gap:10px;}
 .nav button{flex:1;padding:10px;background:#222;border:none;color:#fff;cursor:pointer;}
 .nav button.active{background:#00ff7f;color:#000;font-weight:bold;}
-
 .page{display:none;}
 .page.active{display:block;}
-
 section{background:#1e1e2a;border-radius:10px;padding:15px;margin-top:10px;}
-
 table{width:100%;border-collapse:collapse;}
 td,th{padding:8px;border-bottom:1px solid #333;}
 th{color:#00ff7f;}
-
 .success{color:#00ff7f;}
 .failed{color:#ff4c4c;}
-
-.console{background:#111;height:150px;overflow:auto;padding:10px;border-radius:10px;}
+.skipped{color:#9999ff;}
+.console{background:#111;height:150px;overflow:auto;padding:10px;border-radius:10px;font-size:12px;}
 .progress{height:10px;background:#00ff7f;width:0%;border-radius:10px;}
 .bar{background:#111;border-radius:10px;margin-top:10px;}
+.avatar{width:25px;height:25px;border-radius:50%;}
 </style>
 </head>
 
 <body>
 
-<!-- NAVBAR -->
+<!-- NAV -->
 <div class="nav">
 <button class="tab active" data-page="auto">Auto Add</button>
 <button class="tab" data-page="accounts">Accounts</button>
@@ -80,12 +77,11 @@ th{color:#00ff7f;}
 </div>
 
 <script>
-// ===== NAV SWITCH =====
+// ===== NAV =====
 document.querySelectorAll(".tab").forEach(btn=>{
   btn.onclick=()=>{
     document.querySelectorAll(".tab").forEach(b=>b.classList.remove("active"))
     btn.classList.add("active")
-
     document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"))
     document.getElementById(btn.dataset.page).classList.add("active")
   }
@@ -101,11 +97,9 @@ async function loadAccounts(){
   Object.keys(data).forEach(id=>{
     const a=data[id]
     let flood="-"
-
     if(a.floodWaitUntil && a.floodWaitUntil>Date.now()){
       flood=Math.floor((a.floodWaitUntil-Date.now())/1000)+"s"
     }
-
     table.innerHTML+=`
     <tr>
       <td>${id}</td>
@@ -119,16 +113,23 @@ setInterval(loadAccounts,2000)
 loadAccounts()
 
 // ===== LOAD HISTORY =====
+let historySet = new Set()
+
 async function loadHistory(){
   const res=await fetch("/history")
   const data=await res.json()
   const box=document.getElementById("historyList")
   box.innerHTML=""
 
-  Object.values(data).slice(-50).reverse().forEach(h=>{
+  historySet.clear()
+
+  Object.values(data).slice(-100).reverse().forEach(h=>{
+    const key = h.username || h.user_id
+    if(h.status==="success") historySet.add(key)
+
     box.innerHTML+=`
     <li class="${h.status}">
-      ${h.username||h.user_id} → ${h.status}
+      ${key} → ${h.status}
       <br><small>${h.reason}</small>
     </li>`
   })
@@ -169,6 +170,7 @@ function nextAccount(data,index){
   return null
 }
 
+// ===== START AUTO ADD =====
 startBtn.onclick=async()=>{
   const source=document.getElementById("source").value.trim()
   const target=document.getElementById("target").value.trim()
@@ -178,45 +180,79 @@ startBtn.onclick=async()=>{
   list.innerHTML=""; consoleBox.innerHTML=""
 
   while(true){
+
     status.innerText="Fetching 10..."
     const res=await fetch("/members",{
       method:"POST",
       headers:{"Content-Type":"application/json"},
       body:JSON.stringify({group:source, offset, limit:10})
     })
+
     const data=await res.json()
     if(data.error){alert(data.error); break}
 
     const members=data.members||[]
-    if(members.length===0) break
-    offset=data.nextOffset
+    if(members.length===0){
+      status.innerText="No more members"
+      break
+    }
 
+    offset=data.nextOffset
     const accounts=await getAccounts()
 
     for(const m of members){
+      const key = m.username || m.user_id
+
+      // ===== 🔥 SKIP HISTORY (NO DELAY) =====
+      if(historySet.has(key)){
+        log(`SKIP history → ${key}`)
+        list.innerHTML+=`<li class="skipped">${key} → skipped</li>`
+        total++
+        counter.innerText=total
+        progress.style.width=(total%100)+"%"
+        continue
+      }
+
       const acc=nextAccount(accounts,accIndex)
-      if(!acc){await new Promise(r=>setTimeout(r,5000)); continue}
+
+      if(!acc){
+        status.innerText="All accounts FloodWait..."
+        await new Promise(r=>setTimeout(r,5000))
+        continue
+      }
 
       accIndex=acc.index
-      log(`${acc.id} → ${m.username||m.user_id}`)
+      log(`${acc.id} → ${key}`)
 
       const addRes=await fetch("/add-member",{
         method:"POST",
         headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({...m,targetGroup:target})
+        body:JSON.stringify({
+          username:m.username,
+          user_id:m.user_id,
+          access_hash:m.access_hash,
+          targetGroup:target
+        })
       })
 
       const result=await addRes.json()
 
-      list.innerHTML+=`<li class="${result.status}">${m.username||m.user_id} → ${result.status}</li>`
+      list.innerHTML+=`
+      <li class="${result.status}">
+        ${key} → ${result.status}
+      </li>`
 
       total++
       counter.innerText=total
       progress.style.width=(total%100)+"%"
 
-      if(result.status==="success") accIndex++
+      if(result.status==="success"){
+        historySet.add(key)
+        accIndex++
+      }
     }
 
+    // ===== Batch delay =====
     let wait=30
     while(wait--){
       status.innerText=`Next batch in ${wait}s`
@@ -224,7 +260,7 @@ startBtn.onclick=async()=>{
     }
   }
 
-  status.innerText="Finished"
+  status.innerText="Finished ✅"
 }
 </script>
 
