@@ -16,240 +16,216 @@ button{width:100%;padding:12px;margin-top:10px;border:none;border-radius:10px;ba
 button:hover{background:#00cc66;color:#fff;}
 .success{color:#00ff7f;}
 .failed{color:#ff4c4c;}
-.skipped{color:#ffcc00;}
-.avatar{width:25px;height:25px;border-radius:50%;}
+.avatar{width:25px;height:25px;border-radius:50%;vertical-align:middle;margin-right:5px;}
 ul{list-style:none;padding:0;max-height:300px;overflow-y:auto;}
 .console{background:#111;padding:10px;border-radius:10px;height:150px;overflow:auto;font-size:12px;}
 .progress-bar{background:#111;height:10px;border-radius:10px;margin-top:10px;}
 .progress{background:#00ff7f;height:10px;width:0%;border-radius:10px;}
-
-/* Top bar */
-.top-bar{display:flex;justify-content:space-around;margin-bottom:20px;}
-.bar-btn{padding:12px;border:none;border-radius:10px;background:#00ff7f;font-weight:700;cursor:pointer;color:#111;transition:0.2s;}
-.bar-btn:hover{background:#00cc66;color:#fff;}
-.active-bar{background:#ffcc00 !important;color:#111 !important;}
-
-/* Summary */
-.summary{display:flex;justify-content:space-around;margin-top:10px;}
-.summary div{padding:10px;background:#111;border-radius:10px;width:30%;text-align:center;}
-.summary div span{display:block;font-size:22px;margin-top:5px;}
+.dashboard{display:flex;justify-content:space-around;margin-top:10px;}
+.dashboard div{background:#111;padding:10px;border-radius:10px;width:30%;text-align:center;}
 </style>
 </head>
 <body>
 
 <div class="container">
 
-  <!-- Top Bar -->
-  <div class="top-bar">
-    <button id="btn-auto" class="bar-btn active-bar">Auto Add</button>
-    <button id="btn-history" class="bar-btn">History / Summary</button>
-  </div>
+<section>
+<div class="card-title">Auto Add Members</div>
 
-  <!-- Auto Add Section -->
-  <section id="auto-section">
-    <div class="card-title">Auto Add Members</div>
-    <input id="source" placeholder="Source Group">
-    <input id="target" placeholder="Target Group">
-    <button id="start">START AUTO ADD</button>
+<div style="display:flex;gap:10px;">
+<input id="source" placeholder="Source Group">
+<input id="target" placeholder="Target Group">
+</div>
 
-    <div id="status"></div>
-    <div id="counter">0</div>
+<div style="display:flex;gap:10px;margin-top:10px;">
+<button id="start">START AUTO ADD</button>
+<button id="historyBtn">HISTORY / SUMMARY</button>
+</div>
 
-    <div class="progress-bar"><div id="progress" class="progress"></div></div>
+<div class="dashboard">
+  <div>Success: <span id="totalSuccess">0</span></div>
+  <div>Failed: <span id="totalFailed">0</span></div>
+  <div>Skipped: <span id="totalSkipped">0</span></div>
+</div>
 
-    <ul id="list"></ul>
-    <div class="console" id="console"></div>
-  </section>
+<div id="status"></div>
+<div id="counter">0</div>
+<div class="progress-bar"><div id="progress" class="progress"></div></div>
 
-  <!-- History Section -->
-  <section id="history-section" style="display:none;">
-    <div class="card-title">History / Summary</div>
-    
-    <!-- Summary Dashboard -->
-    <div class="summary">
-      <div>Success <span id="sum-success">0</span></div>
-      <div>Failed <span id="sum-failed">0</span></div>
-      <div>Skipped <span id="sum-skipped">0</span></div>
-    </div>
+<ul id="list"></ul>
+<div class="console" id="console"></div>
 
-    <ul id="history-list"></ul>
-  </section>
+</section>
 
 </div>
 
 <script>
-const autoSection = document.getElementById('auto-section')
-const historySection = document.getElementById('history-section')
-const btnAuto = document.getElementById('btn-auto')
-const btnHistory = document.getElementById('btn-history')
+const startBtn = document.getElementById("start");
+const historyBtn = document.getElementById("historyBtn");
+const status = document.getElementById("status");
+const counter = document.getElementById("counter");
+const progress = document.getElementById("progress");
+const list = document.getElementById("list");
+const consoleBox = document.getElementById("console");
 
-const list = document.getElementById("list")
-const consoleBox = document.getElementById("console")
-const status = document.getElementById("status")
-const counter = document.getElementById("counter")
-const progress = document.getElementById("progress")
+const totalSuccessEl = document.getElementById("totalSuccess");
+const totalFailedEl = document.getElementById("totalFailed");
+const totalSkippedEl = document.getElementById("totalSkipped");
 
-const historyList = document.getElementById("history-list")
-const sumSuccess = document.getElementById("sum-success")
-const sumFailed = document.getElementById("sum-failed")
-const sumSkipped = document.getElementById("sum-skipped")
+let offset = 0;
+let total = 0;
+let accIndex = 0;
 
-let offset=0, total=0, accIndex=0
+let successCount = 0;
+let failedCount = 0;
+let skippedCount = 0;
 
 function log(msg){
-  consoleBox.innerHTML+=msg+"<br>"
-  consoleBox.scrollTop=consoleBox.scrollHeight
+  consoleBox.innerHTML += msg + "<br>";
+  consoleBox.scrollTop = consoleBox.scrollHeight;
 }
 
-// ===== Bar Button Switch =====
-btnAuto.onclick = () => {
-  autoSection.style.display = 'block'
-  historySection.style.display = 'none'
-  btnAuto.classList.add('active-bar')
-  btnHistory.classList.remove('active-bar')
+async function getAccounts(){
+  const res = await fetch("/account-status");
+  return await res.json();
 }
 
-btnHistory.onclick = async () => {
-  autoSection.style.display = 'none'
-  historySection.style.display = 'block'
-  btnHistory.classList.add('active-bar')
-  btnAuto.classList.remove('active-bar')
-  await loadHistory()
-}
-
-// ===== Load History & Summary =====
-async function loadHistory(){
-  const res = await fetch('/history')
-  const data = await res.json()
-  historyList.innerHTML = ''
-
-  let success=0, failed=0, skipped=0
-
-  for(const key in data){
-    const h = data[key]
-    const li = document.createElement('li')
-    let statusClass = h.status==='success'?'success':h.status==='failed'?'failed':'skipped'
-    li.innerHTML = `
-      ${h.username || h.user_id} → <span class="${statusClass}">${h.status}</span>
-      (${h.accountUsed}) | ${new Date(h.timestamp).toLocaleString()}
-    `
-    historyList.appendChild(li)
-
-    if(h.status==='success') success++
-    else if(h.status==='failed') failed++
-    else skipped++
+function nextAccount(data,index){
+  const now = Date.now();
+  const keys = Object.keys(data);
+  for(let i=0;i<keys.length;i++){
+    let idx=(index+i)%keys.length;
+    let acc = data[keys[idx]];
+    if(acc.status==="active" && (!acc.floodWaitUntil || acc.floodWaitUntil<now)){
+      return {id: keys[idx], index: idx};
+    }
   }
-
-  sumSuccess.innerText = success
-  sumFailed.innerText = failed
-  sumSkipped.innerText = skipped
+  return null;
 }
 
-// ===== AUTO ADD LOGIC WITH AUTO JOIN =====
-document.getElementById("start").onclick = async ()=>{
-  const source = document.getElementById("source").value.trim()
-  const target = document.getElementById("target").value.trim()
-  if(!source || !target) return alert("Enter group")
+startBtn.onclick = async () => {
+  const source = document.getElementById("source").value.trim();
+  const target = document.getElementById("target").value.trim();
+  if(!source||!target) return alert("Enter group");
 
-  offset=0; total=0; accIndex=0
-  list.innerHTML=""; consoleBox.innerHTML=""
+  offset = 0;
+  total = 0;
+  accIndex = 0;
+  successCount = 0;
+  failedCount = 0;
+  skippedCount = 0;
+  list.innerHTML = "";
+  consoleBox.innerHTML = "";
+  totalSuccessEl.innerText = 0;
+  totalFailedEl.innerText = 0;
+  totalSkippedEl.innerText = 0;
 
   while(true){
-    status.innerText="Fetching 10 members..."
+    status.innerText = "Fetching 10 members...";
     const res = await fetch("/members",{
       method:"POST",
       headers:{"Content-Type":"application/json"},
       body:JSON.stringify({group:source, offset, limit:10})
-    })
-    const data = await res.json()
-    if(data.error){ alert(data.error); break }
-    const members = data.members || []
-    if(members.length===0){ status.innerText="No more members"; break }
-    offset = data.nextOffset
+    });
+    const data = await res.json();
+    if(data.error){ alert(data.error); break; }
 
-    const accountsRes = await fetch('/account-status')
-    const accountsData = await accountsRes.json()
+    const members = data.members || [];
+    if(members.length===0){ status.innerText="No more members"; break; }
 
-    status.innerText="Adding batch..."
+    offset = data.nextOffset;
+
+    const accountsData = await getAccounts();
+    status.innerText = "Adding batch...";
+
     for(const m of members){
-      const keys = Object.keys(accountsData)
-      let acc=null
-      const now = Date.now()
-      for(let i=0;i<keys.length;i++){
-        const tmp = accountsData[keys[(accIndex+i)%keys.length]]
-        if(tmp.status==="active" && (!tmp.floodWaitUntil || tmp.floodWaitUntil<now)){
-          acc = tmp
-          accIndex=(accIndex+i+1)%keys.length
-          break
-        }
-      }
+      const acc = nextAccount(accountsData, accIndex);
       if(!acc){
-        status.innerText="All accounts FloodWait..."
-        await new Promise(r=>setTimeout(r,2000))
-        continue
+        status.innerText="All accounts FloodWait...";
+        await new Promise(r=>setTimeout(r,5000));
+        continue;
       }
+      accIndex = acc.index;
 
-      const nowTime = new Date().toLocaleTimeString()
-      log(`[${nowTime}] ${acc.id} → ${m.username||m.user_id}`)
+      const nowTime = new Date().toLocaleTimeString();
+      log(`[${nowTime}] ${acc.id} → ${m.username||m.user_id}`);
 
-      // ===== Auto Join Target Group =====
-      await fetch("/auto-join",{
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({targetGroup:target, accountId:acc.id})
-      })
-
-      // ===== Add Member =====
       const addRes = await fetch("/add-member",{
         method:"POST",
         headers:{"Content-Type":"application/json"},
         body:JSON.stringify({
-          username:m.username,
-          user_id:m.user_id,
-          access_hash:m.access_hash,
-          targetGroup:target,
-          accountId:acc.id
+          username: m.username,
+          user_id: m.user_id,
+          access_hash: m.access_hash,
+          targetGroup: target
         })
-      })
-      const result = await addRes.json()
+      });
 
-      const li = document.createElement("li")
+      const result = await addRes.json();
+
+      const li = document.createElement("li");
       li.innerHTML = `
         <img class="avatar" src="${m.avatar}" onerror="this.src='https://via.placeholder.com/40?text=U'">
-        ${m.username||m.user_id} → <span class="${result.status==='success'?'success':result.status==='failed'?'failed':'skipped'}">${result.status}</span>
-        (${result.accountUsed})
-      `
-      list.appendChild(li)
+        ${m.username||m.user_id} → <span class="${result.status==="success"?"success":"failed"}">${result.status}</span>
+        (${acc.id})
+      `;
+      list.appendChild(li);
 
-      // ===== SAVE ONLY SUCCESS =====
+      total++;
+      counter.innerText = total;
+      progress.style.width = (total%100)+"%";
+
+      // ===== Update Dashboard & Switch Account =====
       if(result.status==="success"){
-        await fetch("/save-success",{
-          method:"POST",
-          headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({
-            username:m.username,
-            user_id:m.user_id,
-            accountUsed:result.accountUsed
-          })
-        })
+        successCount++;
+        totalSuccessEl.innerText = successCount;
+
+        // Delay 20s countdown
+        let delay = 20;
+        while(delay>0){
+          status.innerText = `Next add in ${delay}s...`;
+          await new Promise(r=>setTimeout(r,1000));
+          delay--;
+        }
+        // Switch to next account
+        accIndex = (accIndex + 1) % Object.keys(accountsData).length;
+      } else {
+        failedCount++;
+        totalFailedEl.innerText = failedCount;
       }
-
-      total++
-      counter.innerText = total
-      progress.style.width = (total%100)+"%"
-    }
-
-    // Delay between batches
-    let wait=5
-    while(wait>0){
-      status.innerText=`Next batch in ${wait}s...`
-      await new Promise(r=>setTimeout(r,1000))
-      wait--
     }
   }
 
-  status.innerText="Finished ✅"
-}
+  status.innerText = "Finished ✅";
+};
+
+// ===== History / Summary =====
+historyBtn.onclick = async () => {
+  const res = await fetch("/history");
+  const data = await res.json();
+  consoleBox.innerHTML = "";
+  successCount = 0; failedCount = 0; skippedCount = 0;
+
+  for(const key in data){
+    const h = data[key];
+    // Only show success in console & count
+    const li = document.createElement("li");
+    li.innerHTML = `
+      <img class="avatar" src="https://via.placeholder.com/40?text=U">
+      ${h.username||h.user_id} → <span class="${h.status==="success"?"success":"failed"}">${h.status}</span>
+      (${h.accountUsed})
+    `;
+    list.appendChild(li);
+
+    if(h.status==="success") successCount++;
+    else failedCount++;
+  }
+
+  totalSuccessEl.innerText = successCount;
+  totalFailedEl.innerText = failedCount;
+  totalSkippedEl.innerText = skippedCount;
+  status.innerText = `History Loaded ✅`;
+};
 </script>
 
 </body>
