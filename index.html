@@ -135,55 +135,94 @@ refreshHistoryBtn.onclick=loadHistory
 loadHistory()
 
 async function getAccounts(){ const res=await fetch("/account-status"); return await res.json() }
-function nextAccount(data,index){
-  const now=Date.now()
-  const keys=Object.keys(data)
+
+function nextAccount(data, startIndex){
+  const now = Date.now()
+  const keys = Object.keys(data)
   for(let i=0;i<keys.length;i++){
-    let idx=(index+i)%keys.length
+    let idx=(startIndex+i)%keys.length
     let acc=data[keys[idx]]
-    if(acc.status==="active" && (!acc.floodWaitUntil || acc.floodWaitUntil<now)) return {id:keys[idx], index:idx}
+    if(acc.status==="active" && (!acc.floodWaitUntil || acc.floodWaitUntil<now)){
+      return {id:keys[idx], index:idx}
+    }
   }
   return null
 }
 
-startBtn.onclick=async()=>{
-  const source=document.getElementById("source").value.trim()
-  const target=document.getElementById("target").value.trim()
+// ===== Auto Join All Accounts =====
+async function autoJoinAllAccounts(group){
+  const accounts = await getAccounts()
+  for(const key of Object.keys(accounts)){
+    const acc = accounts[key]
+    if(acc.status!=="active") continue
+    try{
+      await fetch("/auto-join", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({group, account:acc.id})})
+      log(`✅ ${acc.id} joined group`)
+      await new Promise(r=>setTimeout(r,500)) // small delay
+    }catch(e){
+      log(`❌ ${acc.id} join failed: ${e.message}`)
+    }
+  }
+}
+
+// ===== Start Auto Add =====
+startBtn.onclick = async () => {
+  const source = document.getElementById("source").value.trim()
+  const target = document.getElementById("target").value.trim()
   if(!source||!target) return alert("Enter group")
-  offset=0; total=0; accIndex=0; list.innerHTML=""; consoleBox.innerHTML=""
+
+  offset=0; total=0; accIndex=0
+  list.innerHTML=""; consoleBox.innerHTML=""
+
+  status.innerText="Joining all accounts to source group..."
+  await autoJoinAllAccounts(source)
+  status.innerText="Joining all accounts to target group..."
+  await autoJoinAllAccounts(target)
+
   while(true){
-    status.innerText="Fetching 10 members..."
-    const res=await fetch("/members",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({group:source, offset, limit:10})})
-    const data=await res.json()
+    status.innerText = "Fetching 50 members..."
+    const res = await fetch("/members",{
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({group:source, offset, limit:50})
+    })
+    const data = await res.json()
     if(data.error){ alert(data.error); break }
-    const members=data.members||[]
-    if(members.length===0){ status.innerText="No more members"; break }
-    offset=data.nextOffset
-    const accounts=await getAccounts()
-    status.innerText="Adding batch..."
+    const members = data.members||[]
+    if(members.length===0) break
+    offset = data.nextOffset
+    const accounts = await getAccounts()
+
     for(const m of members){
       if(historySet.has(m.user_id||m.username)){
-        log(`⏭️ Skipped ${m.username||m.user_id} (already in history)`)
+        log(`⏭️ Skipped ${m.username||m.user_id}`)
         const li=document.createElement("li")
         li.innerHTML=`<img class="avatar" src="${m.avatar}" onerror="this.src='https://via.placeholder.com/40?text=U'"> ${m.username||m.user_id} → <span class="skipped">skipped</span>`
         list.appendChild(li)
-        total++; counter.innerText=total; progress.style.width=(total%100)+"%"; continue
+        total++; counter.innerText=total; progress.style.width=(total%100)+"%"
+        continue
       }
-      const acc=nextAccount(accounts,accIndex)
-      if(!acc){ status.innerText="All accounts FloodWait..."; await new Promise(r=>setTimeout(r,5000)); continue }
-      accIndex=acc.index
-      log(`Using ${acc.id} → ${m.username||m.user_id}`)
-      const addRes=await fetch("/add-member",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:m.username,user_id:m.user_id,access_hash:m.access_hash,targetGroup:target})})
-      const result=await addRes.json()
-      if(result.status==="success"){ status.innerText=`Added ${m.username||m.user_id} ✅ | Wait 20s...`; await new Promise(r=>setTimeout(r,20000)) }
+
+      const acc = nextAccount(accounts, accIndex)
+      if(!acc){ await new Promise(r=>setTimeout(r,5000)); continue }
+      accIndex = acc.index
+      log(`Using account ${acc.id} → ${m.username||m.user_id}`)
+
+      const addRes = await fetch("/add-member",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({username:m.username,user_id:m.user_id,access_hash:m.access_hash,targetGroup:target})
+      })
+      const result = await addRes.json()
+      if(result.status==="success") await new Promise(r=>setTimeout(r,20000)) // per-user delay
+
       const li=document.createElement("li")
       li.innerHTML=`<img class="avatar" src="${m.avatar}" onerror="this.src='https://via.placeholder.com/40?text=U'"> ${m.username||m.user_id} → <span class="${result.status==="success"?"success":(result.status==="failed"?"failed":"skipped")}">${result.status}</span> (${acc.id})`
       list.appendChild(li)
       total++; counter.innerText=total; progress.style.width=(total%100)+"%"
     }
-    let wait=30
-    while(wait>0){ status.innerText=`Next batch in ${wait}s...`; await new Promise(r=>setTimeout(r,1000)); wait-- }
   }
+
   status.innerText="Finished ✅"
   loadHistory()
 }
