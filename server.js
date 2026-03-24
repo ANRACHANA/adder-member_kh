@@ -9,7 +9,6 @@ import { fileURLToPath } from 'url'
 
 const app = express()
 app.use(express.json())
-
 function sleep(ms){ return new Promise(r=>setTimeout(r,ms)) }
 
 // ===== Firebase =====
@@ -30,10 +29,8 @@ async function saveAccountToFirebase(account){
   try{
     const snap = await get(ref(db,'accounts'))
     const data = snap.val() || {}
-
     const exists = Object.values(data).some(a => a.phone === account.phone)
     if(exists) return false
-
     await update(ref(db,`accounts/${account.id}`),{
       phone:account.phone,
       api_id:account.api_id,
@@ -43,7 +40,6 @@ async function saveAccountToFirebase(account){
       floodWaitUntil:null,
       createdAt:Date.now()
     })
-
     console.log(`✅ Saved ${account.phone}`)
     return true
   }catch(err){
@@ -59,33 +55,18 @@ while(process.env[`TG_ACCOUNT_${i}_PHONE`]){
   const api_hash=process.env[`TG_ACCOUNT_${i}_API_HASH`]
   const session=process.env[`TG_ACCOUNT_${i}_SESSION`]
   const phone=process.env[`TG_ACCOUNT_${i}_PHONE`]
-
   if(!api_id||!api_hash||!session){i++; continue}
 
-  const account={
-    phone, api_id, api_hash, session,
-    id:`TG_ACCOUNT_${i}`,
-    status:"pending",
-    floodWaitUntil:null
-  }
-
+  const account={phone, api_id, api_hash, session, id:`TG_ACCOUNT_${i}`, status:"pending", floodWaitUntil:null}
   accounts.push(account)
-
-  // 🔥 Auto save
   saveAccountToFirebase(account)
-
   i++
 }
 
 // ===== Telegram Client =====
 async function getClient(account){
   if(clients[account.id]) return clients[account.id]
-  const client=new TelegramClient(
-    new StringSession(account.session),
-    account.api_id,
-    account.api_hash,
-    {connectionRetries:5}
-  )
+  const client=new TelegramClient(new StringSession(account.session), account.api_id, account.api_hash, {connectionRetries:5})
   await client.connect()
   clients[account.id]=client
   return client
@@ -106,10 +87,7 @@ async function refreshAccountStatus(account){
   if(account.floodWaitUntil && account.floodWaitUntil < Date.now()){
     account.floodWaitUntil=null
     account.status="active"
-    await update(ref(db,`accounts/${account.id}`),{
-      status:"active",
-      floodWaitUntil:null
-    })
+    await update(ref(db,`accounts/${account.id}`),{status:"active",floodWaitUntil:null})
   }
 }
 
@@ -119,28 +97,18 @@ async function checkTGAccount(account){
     await refreshAccountStatus(account)
     const client=await getClient(account)
     await client.getMe()
-
     account.status="active"
     account.floodWaitUntil=null
-
-    await update(ref(db,`accounts/${account.id}`),{
-      status:"active",
-      phone:account.phone,
-      lastChecked:Date.now(),
-      floodWaitUntil:null
-    })
-
+    await update(ref(db,`accounts/${account.id}`),{status:"active", phone:account.phone,lastChecked:Date.now(),floodWaitUntil:null})
   }catch(err){
     const wait=parseFlood(err)
     let status="error", floodUntil=null
-
     if(wait){
       status="floodwait"
       floodUntil=Date.now()+wait*1000
       account.floodWaitUntil=floodUntil
       account.status="floodwait"
     }
-
     await update(ref(db,`accounts/${account.id}`),{
       status,
       floodWaitUntil:floodUntil,
@@ -170,9 +138,8 @@ function getAvailableAccount(){
 
 // ===== Auto Join Group =====
 async function autoJoin(client, group){
-  try{
-    await client.getEntity(group)
-  }catch{
+  try{ await client.getEntity(group) }
+  catch{
     try{
       const hash = group.includes("t.me/") ? group.split("/").pop() : group
       await client.invoke(new Api.messages.ImportChatInvite({hash}))
@@ -181,174 +148,117 @@ async function autoJoin(client, group){
 }
 
 // ===== Members (Batch) =====
-app.post('/members',async(req,res)=>{
+app.post('/members', async(req,res)=>{
   try{
     const {group, offset=0, limit=100}=req.body
-
     const acc=getAvailableAccount()
     if(!acc) return res.json({error:"No active account"})
-
     const client=await getClient(acc)
-
     await autoJoin(client,group)
-
     const entity=await client.getEntity(group)
     const participants=await client.getParticipants(entity,{limit,offset})
-
     const members=participants.filter(p=>!p.bot).map(p=>({
       user_id:p.id,
       username:p.username,
       access_hash:p.access_hash,
       avatar:`https://t.me/i/userpic/320/${p.id}.jpg`
     }))
-
-    res.json({
-      members,
-      nextOffset:offset+participants.length,
-      hasMore:participants.length===limit
-    })
-
+    res.json({members, nextOffset:offset+participants.length, hasMore:participants.length===limit})
   }catch(err){
     res.json({error:err.message})
   }
 })
 
-// ===== Add Member (FAST NO CHECK) =====
+// ===== Add Member (Fast, Save Success Only) =====
 app.post('/add-member',async(req,res)=>{
   try{
     const {username,user_id,access_hash,targetGroup}=req.body
-
     const acc=getAvailableAccount()
     if(!acc) return res.json({status:"failed",reason:"All FloodWait",accountUsed:"none"})
-
     const client=await getClient(acc)
-
     await autoJoin(client,targetGroup)
-
     let status="failed", reason="unknown"
-
     try{
       let userEntity
       if(username) userEntity=await client.getEntity(username)
       else userEntity=new Api.InputUser({userId:user_id, accessHash:BigInt(access_hash)})
-
       const group=await client.getEntity(targetGroup)
-
-      await client.invoke(new Api.channels.InviteToChannel({
-        channel:group,
-        users:[userEntity]
-      }))
-
+      await client.invoke(new Api.channels.InviteToChannel({channel:group, users:[userEntity]}))
       status="success"
       reason="joined"
-
-      await sleep(30000 + Math.floor(Math.random()*10000)) // 30–40s
-
+      await sleep(30000 + Math.floor(Math.random()*10000))
     }catch(err){
       const wait=parseFlood(err)
       if(wait){
         const until=Date.now()+wait*1000
         acc.floodWaitUntil=until
         acc.status="floodwait"
-
-        await update(ref(db,`accounts/${acc.id}`),{
-          status:"floodwait",
-          floodWaitUntil:until
-        })
-
-        const ready=new Date(until).toLocaleString()
-        reason=`FloodWait ${wait}s | Ready ${ready}`
-      }else{
-        reason=err.message
-      }
+        await update(ref(db,`accounts/${acc.id}`),{status:"floodwait",floodWaitUntil:until})
+        reason=`FloodWait ${wait}s | Ready ${new Date(until).toLocaleString()}`
+      }else reason=err.message
     }
 
-    await push(ref(db,'history'),{
-      username,user_id,status,reason,
-      accountUsed:acc.id,
-      timestamp:Date.now()
-    })
+    // ===== Save Success Only =====
+    if(status==="success"){
+      await push(ref(db,'history'),{
+        username,user_id,status,reason,accountUsed:acc.id,timestamp:Date.now()
+      })
+    }
 
     res.json({status,reason,accountUsed:acc.id})
-
   }catch(err){
     res.json({status:"failed",reason:err.message,accountUsed:"unknown"})
   }
 })
 
-// ===== Add Account API =====
-app.post('/add-account',async(req,res)=>{
+// ===== Save Success API =====
+app.post('/save-success', async(req,res)=>{
+  try{
+    const { username, user_id, accountUsed } = req.body
+    await push(ref(db,'history'),{
+      username, user_id, status:'success', reason:'joined', accountUsed, timestamp:Date.now()
+    })
+    res.json({status:'ok'})
+  }catch(err){
+    res.json({status:'failed',reason:err.message})
+  }
+})
+
+// ===== Add / Upload Accounts =====
+app.post('/add-account', async(req,res)=>{
   try{
     const {phone, api_id, api_hash, session}=req.body
-    if(!phone||!api_id||!api_hash||!session){
-      return res.json({status:"failed",reason:"Missing fields"})
-    }
-
+    if(!phone||!api_id||!api_hash||!session) return res.json({status:"failed",reason:"Missing fields"})
     const id=`TG_${Date.now()}`
-
-    const account={
-      phone,
-      api_id:Number(api_id),
-      api_hash,
-      session,
-      id,
-      status:"active",
-      floodWaitUntil:null
-    }
-
+    const account={phone, api_id:Number(api_id), api_hash, session, id, status:"active", floodWaitUntil:null}
     const saved=await saveAccountToFirebase(account)
-
     if(!saved) return res.json({status:"skipped",reason:"Duplicate"})
-
     accounts.push(account)
-
     res.json({status:"success",account})
-
   }catch(err){
     res.json({status:"failed",reason:err.message})
   }
 })
 
-// ===== Upload Accounts =====
-app.post('/upload-accounts',async(req,res)=>{
+app.post('/upload-accounts', async(req,res)=>{
   try{
     const {accountsList}=req.body
     let success=0, skipped=0
-
     for(const acc of accountsList){
-      const account={
-        phone:acc.phone,
-        api_id:Number(acc.api_id),
-        api_hash:acc.api_hash,
-        session:acc.session,
-        id:`TG_${Date.now()}_${Math.random()}`,
-        status:"active",
-        floodWaitUntil:null
-      }
-
+      const account={phone:acc.phone, api_id:Number(acc.api_id), api_hash:acc.api_hash, session:acc.session, id:`TG_${Date.now()}_${Math.random()}`, status:"active", floodWaitUntil:null}
       const saved=await saveAccountToFirebase(account)
-
-      if(saved){
-        accounts.push(account)
-        success++
-      }else skipped++
+      if(saved){ accounts.push(account); success++ }else skipped++
     }
-
     res.json({status:"done",success,skipped})
-
-  }catch(err){
-    res.json({status:"failed",reason:err.message})
-  }
+  }catch(err){ res.json({status:"failed",reason:err.message}) }
 })
 
-// ===== Account Status =====
-app.get('/account-status',async(req,res)=>{
+// ===== Account Status / History =====
+app.get('/account-status', async(req,res)=>{
   const snap=await get(ref(db,'accounts'))
   res.json(snap.val()||{})
 })
-
-// ===== History =====
-app.get('/history',async(req,res)=>{
+app.get('/history', async(req,res)=>{
   const snap=await get(ref(db,'history'))
   res.json(snap.val()||{})
 })
@@ -356,7 +266,7 @@ app.get('/history',async(req,res)=>{
 // ===== Frontend =====
 const __filename=fileURLToPath(import.meta.url)
 const __dirname=path.dirname(__filename)
-app.get('/',(req,res)=>res.sendFile(path.join(__dirname,'index.html')))
+app.get('/', (req,res)=>res.sendFile(path.join(__dirname,'index.html')))
 
 const PORT=process.env.PORT||3000
 app.listen(PORT,()=>console.log(`🚀 Server running on ${PORT}`))
