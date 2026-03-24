@@ -147,14 +147,29 @@ async function autoJoin(client, group){
   }
 }
 
+// ===== Auto Join All Accounts =====
+async function autoJoinAllAccounts(group){
+  for(const acc of accounts){
+    if(acc.status!=="active") continue
+    try{
+      const client=await getClient(acc)
+      await autoJoin(client, group)
+      console.log(`✅ ${acc.id} joined ${group}`)
+      await sleep(500) // small delay
+    }catch(e){
+      console.log(`❌ ${acc.id} failed join: ${e.message}`)
+    }
+  }
+}
+
 // ===== Members (Batch) =====
 app.post('/members', async(req,res)=>{
   try{
-    const {group, offset=0, limit=100}=req.body
+    const {group, offset=0, limit=50}=req.body
     const acc=getAvailableAccount()
     if(!acc) return res.json({error:"No active account"})
     const client=await getClient(acc)
-    await autoJoin(client,group)
+    await autoJoinAllAccounts(group) // join all accounts first
     const entity=await client.getEntity(group)
     const participants=await client.getParticipants(entity,{limit,offset})
     const members=participants.filter(p=>!p.bot).map(p=>({
@@ -176,7 +191,7 @@ app.post('/add-member',async(req,res)=>{
     const acc=getAvailableAccount()
     if(!acc) return res.json({status:"failed",reason:"All FloodWait",accountUsed:"none"})
     const client=await getClient(acc)
-    await autoJoin(client,targetGroup)
+    await autoJoinAllAccounts(targetGroup) // join all accounts before adding
     let status="failed", reason="unknown"
     try{
       let userEntity
@@ -198,7 +213,6 @@ app.post('/add-member',async(req,res)=>{
       }else reason=err.message
     }
 
-    // ===== Save Success Only =====
     if(status==="success"){
       await push(ref(db,'history'),{
         username,user_id,status,reason,accountUsed:acc.id,timestamp:Date.now()
