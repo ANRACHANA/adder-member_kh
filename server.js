@@ -21,11 +21,10 @@ const firebaseConfig = {
 initializeApp(firebaseConfig)
 const db = getDatabase()
 
-// ===== Telegram Accounts =====
+// ===== Accounts =====
 const accounts = []
 const clients = {}
 
-// ===== Helpers =====
 function sleep(ms){ return new Promise(r=>setTimeout(r,ms)) }
 
 function parseFlood(err){
@@ -37,7 +36,6 @@ function parseFlood(err){
   return null
 }
 
-// ===== Firebase Account Save =====
 async function saveAccountToFirebase(account){
   try{
     const snap = await get(ref(db,'accounts'))
@@ -55,10 +53,7 @@ async function saveAccountToFirebase(account){
     })
     console.log(`✅ Saved ${account.phone}`)
     return true
-  }catch(err){
-    console.log("❌ Save error:", err.message)
-    return false
-  }
+  }catch(err){ console.log("❌ Save error:", err.message); return false }
 }
 
 // ===== Load ENV Accounts =====
@@ -89,7 +84,7 @@ async function getClient(account){
   return client
 }
 
-// ===== Refresh Account Status =====
+// ===== Refresh / Check Account =====
 async function refreshAccountStatus(account){
   if(account.floodWaitUntil && account.floodWaitUntil < Date.now()){
     account.floodWaitUntil = null
@@ -98,7 +93,6 @@ async function refreshAccountStatus(account){
   }
 }
 
-// ===== Check Account =====
 async function checkTGAccount(account){
   try{
     await refreshAccountStatus(account)
@@ -129,7 +123,6 @@ async function checkTGAccount(account){
   }
 }
 
-// ===== Auto Check Accounts =====
 async function autoCheck(){
   for(const acc of accounts){
     await refreshAccountStatus(acc)
@@ -146,7 +139,7 @@ function getAvailableAccount(){
   return accounts.find(a=>a.status==="active" && (!a.floodWaitUntil || a.floodWaitUntil<now))
 }
 
-// ===== Auto Join Group =====
+// ===== Auto Join =====
 async function autoJoin(client, group){
   try{ await client.getEntity(group) }
   catch{
@@ -174,9 +167,7 @@ app.post('/members', async (req,res)=>{
       avatar:`https://t.me/i/userpic/320/${p.id}.jpg`
     }))
     res.json({members, nextOffset:offset+participants.length, hasMore:participants.length===limit})
-  }catch(err){
-    res.json({error:err.message})
-  }
+  }catch(err){ res.json({error:err.message}) }
 })
 
 // ===== Add Member =====
@@ -202,19 +193,14 @@ app.post('/add-member', async (req,res)=>{
         acc.floodWaitUntil = until
         acc.status = "floodwait"
         await update(ref(db,`accounts/${acc.id}`),{status:"floodwait",floodWaitUntil:until})
-        const ready = new Date(until).toLocaleString()
-        reason = `FloodWait ${wait}s | Ready ${ready}`
+        reason = `FloodWait ${wait}s | Ready at ${new Date(until).toLocaleString()}`
       }else reason=err.message
     }
     await push(ref(db,'history'),{
-      username,user_id,status,reason,
-      accountUsed:acc.id,
-      timestamp:Date.now()
+      username,user_id,status,reason,accountUsed:acc.id,timestamp:Date.now()
     })
     res.json({status,reason,accountUsed:acc.id})
-  }catch(err){
-    res.json({status:"failed",reason:err.message,accountUsed:"unknown"})
-  }
+  }catch(err){ res.json({status:"failed",reason:err.message,accountUsed:"unknown"}) }
 })
 
 // ===== Check History =====
@@ -232,40 +218,13 @@ app.post('/check-history', async (req,res)=>{
   }catch(err){ res.json({checked:[], error:err.message}) }
 })
 
-// ===== Add / Upload Accounts =====
-app.post('/add-account',async(req,res)=>{
-  try{
-    const {phone, api_id, api_hash, session} = req.body
-    if(!phone||!api_id||!api_hash||!session) return res.json({status:"failed",reason:"Missing fields"})
-    const id=`TG_${Date.now()}`
-    const account={phone,api_id:Number(api_id),api_hash,session,id,status:"active",floodWaitUntil:null}
-    const saved=await saveAccountToFirebase(account)
-    if(!saved) return res.json({status:"skipped",reason:"Duplicate"})
-    accounts.push(account)
-    res.json({status:"success",account})
-  }catch(err){ res.json({status:"failed",reason:err.message}) }
-})
-
-app.post('/upload-accounts',async(req,res)=>{
-  try{
-    const {accountsList} = req.body
-    let success=0, skipped=0
-    for(const acc of accountsList){
-      const account={phone:acc.phone,api_id:Number(acc.api_id),api_hash:acc.api_hash,session:acc.session,id:`TG_${Date.now()}_${Math.random()}`,status:"active",floodWaitUntil:null}
-      const saved=await saveAccountToFirebase(account)
-      if(saved){ accounts.push(account); success++ } else skipped++
-    }
-    res.json({status:"done",success,skipped})
-  }catch(err){ res.json({status:"failed",reason:err.message}) }
-})
-
-// ===== Account Status =====
+// ===== Accounts =====
 app.get('/account-status', async(req,res)=>{
   const snap = await get(ref(db,'accounts'))
   res.json(snap.val()||{})
 })
 
-// ===== Full History =====
+// ===== History =====
 app.get('/history', async(req,res)=>{
   const snap = await get(ref(db,'history'))
   res.json(snap.val()||{})
