@@ -135,7 +135,6 @@ async function loadHistory(){
     `
     historyList.appendChild(li)
 
-    // Count for summary
     if(h.status==='success') success++
     else if(h.status==='failed') failed++
     else skipped++
@@ -146,7 +145,7 @@ async function loadHistory(){
   sumSkipped.innerText = skipped
 }
 
-// ===== AUTO ADD LOGIC (SAME AS BEFORE) =====
+// ===== AUTO ADD LOGIC WITH AUTO JOIN =====
 document.getElementById("start").onclick = async ()=>{
   const source = document.getElementById("source").value.trim()
   const target = document.getElementById("target").value.trim()
@@ -193,6 +192,14 @@ document.getElementById("start").onclick = async ()=>{
       const nowTime = new Date().toLocaleTimeString()
       log(`[${nowTime}] ${acc.id} → ${m.username||m.user_id}`)
 
+      // ===== Auto Join Target Group =====
+      await fetch("/auto-join",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({targetGroup:target, accountId:acc.id})
+      })
+
+      // ===== Add Member =====
       const addRes = await fetch("/add-member",{
         method:"POST",
         headers:{"Content-Type":"application/json"},
@@ -200,7 +207,8 @@ document.getElementById("start").onclick = async ()=>{
           username:m.username,
           user_id:m.user_id,
           access_hash:m.access_hash,
-          targetGroup:target
+          targetGroup:target,
+          accountId:acc.id
         })
       })
       const result = await addRes.json()
@@ -213,12 +221,25 @@ document.getElementById("start").onclick = async ()=>{
       `
       list.appendChild(li)
 
+      // ===== SAVE ONLY SUCCESS =====
+      if(result.status==="success"){
+        await fetch("/save-success",{
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({
+            username:m.username,
+            user_id:m.user_id,
+            accountUsed:result.accountUsed
+          })
+        })
+      }
+
       total++
       counter.innerText = total
       progress.style.width = (total%100)+"%"
     }
 
-    // Optional delay between batches
+    // Delay between batches
     let wait=5
     while(wait>0){
       status.innerText=`Next batch in ${wait}s...`
