@@ -2,116 +2,103 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Telegram Auto-Add App</title>
+<title>Telegram Auto-Add PRO MAX 🚀</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono&display=swap" rel="stylesheet">
 <style>
-*{box-sizing:border-box;margin:0;padding:0;}
-body{font-family:'JetBrains Mono',monospace;background:#0f0f10;color:#fff;}
-.container{max-width:1200px;margin:auto;padding:20px;}
-nav{display:flex;gap:15px;margin-bottom:20px;}
-nav button{padding:12px 25px;background:#00ff7f;color:#000;font-weight:700;border:none;border-radius:12px;cursor:pointer;transition:0.3s;}
-nav button:hover, nav button.active{background:#00cc66;color:#fff;}
-section.card{display:none;background:#1e1e2a;padding:25px;border-radius:20px;box-shadow:0 4px 20px rgba(0,0,0,0.5);margin-bottom:20px;}
-section.card.active{display:block;}
-.card-title{font-size:26px;color:#00ff7f;font-weight:700;text-align:center;margin-bottom:15px;}
-input,select{width:100%;padding:12px;margin-top:10px;border-radius:12px;background:#111;color:#fff;border:none;}
-button.action-btn{width:100%;padding:14px;margin-top:15px;border:none;border-radius:12px;background:#00ff7f;font-weight:700;cursor:pointer;transition:0.3s;}
-button.action-btn:hover{background:#00cc66;color:#fff;}
-.summary{display:flex;gap:30px;margin-top:15px;font-weight:700;justify-content:center;flex-wrap:wrap;}
-.summary div{background:#111;padding:10px 20px;border-radius:12px;}
-.progress-bar{background:#111;height:16px;border-radius:12px;margin-top:15px;overflow:hidden;}
-.progress{background:#00ff7f;height:16px;width:0%;border-radius:12px;}
-ul{list-style:none;padding:10px;max-height:350px;overflow-y:auto;margin-top:15px;border:1px solid #222;border-radius:12px;}
-ul li{display:flex;align-items:center;gap:10px;padding:8px;background:#111;margin-bottom:8px;border-radius:12px;}
-ul li img.avatar{width:35px;height:35px;border-radius:50%;object-fit:cover;}
-.console{background:#111;padding:12px;border-radius:12px;height:180px;overflow:auto;font-size:13px;margin-top:10px;}
-@media(max-width:768px){.summary{flex-direction:column;align-items:center;}}
+*{box-sizing:border-box;}
+body{font-family:'JetBrains Mono',monospace;background:#0f0f10;color:#fff;margin:0;}
+.container{max-width:1200px;margin:auto;padding:15px;}
+nav{background:#111;padding:10px;border-radius:10px;display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;}
+nav button{background:#00ff7f;color:#000;font-weight:700;padding:10px;border:none;border-radius:10px;cursor:pointer;flex:1;}
+nav button:hover{background:#00cc66;color:#fff;}
+section{background:#1e1e2a;border-radius:20px;padding:20px;margin-bottom:20px;}
+.card-title{font-size:22px;font-weight:700;color:#00ff7f;text-align:center;margin-bottom:10px;}
+input,select{width:100%;padding:10px;margin-top:10px;border-radius:10px;background:#111;color:#fff;border:none;}
+button{width:100%;padding:12px;margin-top:10px;border:none;border-radius:10px;background:#00ff7f;font-weight:700;cursor:pointer;}
+button:hover{background:#00cc66;color:#fff;}
+.success{color:#00ff7f;}
+.failed{color:#ff4c4c;}
+.avatar{width:30px;height:30px;border-radius:50%;vertical-align:middle;margin-right:5px;}
+ul{list-style:none;padding:0;max-height:300px;overflow-y:auto;}
+.console{background:#111;padding:10px;border-radius:10px;height:150px;overflow:auto;font-size:12px;}
+.progress-bar{background:#111;height:10px;border-radius:10px;margin-top:10px;}
+.progress{background:#00ff7f;height:10px;width:0%;border-radius:10px;}
+.summary{display:flex;gap:20px;margin-top:10px;font-weight:700;}
+.account-dashboard{display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;}
+.account-card{padding:15px;border-radius:12px;color:#000;width:180px;flex-shrink:0;}
+.account-card.active{background:#00ff7f;}
+.account-card.floodwait{background:#ffcc00;}
+.account-card.error{background:#ff4c4c;}
+.account-card .phone{font-weight:700;margin-bottom:5px;}
+.account-card .flood{font-size:12px;color:#111;}
 </style>
 </head>
 <body>
 
 <div class="container">
 
-<!-- Navigation Buttons -->
 <nav>
-  <button id="tab-auto" class="active">Auto Add</button>
-  <button id="tab-history">History</button>
-  <button id="tab-accounts">Accounts</button>
+  <button id="autoAddTab">AUTO ADD</button>
+  <button id="historyTab">HISTORY</button>
+  <button id="accountsTab">ACCOUNTS</button>
 </nav>
 
-<!-- Auto Add Members -->
-<section class="card active" id="auto-card">
-  <div class="card-title">Auto Add Members</div>
-  <div style="display:flex;gap:15px;flex-wrap:wrap;">
-    <input id="source" placeholder="Source Group (Telegram)">
-    <input id="target" placeholder="Target Group (Telegram)">
-  </div>
-  <div class="summary">
-    <div>Total: <span id="total">0</span></div>
-    <div>Success: <span id="success">0</span></div>
-    <div>Failed: <span id="failed">0</span></div>
-  </div>
-  <div class="progress-bar"><div id="progress" class="progress"></div></div>
-  <ul id="member-list"></ul>
-  <div class="console" id="auto-console"></div>
-  <button id="start-auto" class="action-btn">Start Auto Add</button>
-  <button id="clear-auto" class="action-btn">Clear Logs</button>
+<!-- AUTO ADD SECTION -->
+<section id="autoAddSection">
+<div class="card-title">Auto Add Members</div>
+<input id="source" placeholder="Source Group">
+<input id="target" placeholder="Target Group">
+<div class="summary">
+  <div>Total: <span id="total">0</span></div>
+  <div>Success: <span id="success">0</span></div>
+  <div>Failed: <span id="failed">0</span></div>
+</div>
+<div class="progress-bar"><div id="progress" class="progress"></div></div>
+<ul id="list"></ul>
+<div class="console" id="console"></div>
 </section>
 
-<!-- History -->
-<section class="card" id="history-card">
-  <div class="card-title">Member Addition History</div>
-
-  <!-- Dashboard-style Account Summary -->
-  <div class="summary" id="history-summary" style="flex-wrap:wrap;justify-content:flex-start;"></div>
-
-  <!-- Detailed History List -->
-  <ul id="history-list"></ul>
-  <div class="console" id="history-console"></div>
+<!-- HISTORY SECTION -->
+<section id="historySection" style="display:none;">
+<div class="card-title">History</div>
+<ul id="historyList"></ul>
 </section>
 
-<!-- Accounts -->
-<section class="card" id="accounts-card">
-  <div class="card-title">Telegram Accounts</div>
-  <ul id="account-list"></ul>
+<!-- ACCOUNTS DASHBOARD SECTION -->
+<section id="accountsSection" style="display:none;">
+<div class="card-title">Accounts Dashboard</div>
+<div id="accountCards" class="account-dashboard"></div>
 </section>
 
 </div>
 
 <script>
-// Tab Navigation
-const tabs = ["auto","history","accounts"];
-tabs.forEach(tab=>{
-  document.getElementById("tab-"+tab).onclick = ()=>{
-    tabs.forEach(t=>{
-      document.getElementById(t+"-card").classList.remove("active");
-      document.getElementById("tab-"+t).classList.remove("active");
-    });
-    document.getElementById(tab+"-card").classList.add("active");
-    document.getElementById("tab-"+tab).classList.add("active");
+const autoAddTab = document.getElementById("autoAddTab")
+const historyTab = document.getElementById("historyTab")
+const accountsTab = document.getElementById("accountsTab")
+const autoAddSection = document.getElementById("autoAddSection")
+const historySection = document.getElementById("historySection")
+const accountsSection = document.getElementById("accountsSection")
 
-    if(tab==="history") loadHistory();
-    if(tab==="accounts") loadAccounts();
-  }
-});
+autoAddTab.onclick = ()=>{ autoAddSection.style.display="block"; historySection.style.display="none"; accountsSection.style.display="none"; }
+historyTab.onclick = ()=>{ autoAddSection.style.display="none"; historySection.style.display="block"; accountsSection.style.display="none"; loadHistory() }
+accountsTab.onclick = ()=>{ autoAddSection.style.display="none"; historySection.style.display="none"; accountsSection.style.display="block"; loadAccounts() }
 
-// ===== Auto Add UI Logic (Skip History, No Delay) =====
-const startBtn = document.getElementById("start-auto");
-const clearBtn = document.getElementById("clear-auto");
-const totalBox = document.getElementById("total");
-const successBox = document.getElementById("success");
-const failedBox = document.getElementById("failed");
-const progress = document.getElementById("progress");
-const memberList = document.getElementById("member-list");
-const autoConsole = document.getElementById("auto-console");
+const startBtn = document.getElementById("start")
+const clearBtn = document.getElementById("clear")
+const totalBox = document.getElementById("total")
+const successBox = document.getElementById("success")
+const failedBox = document.getElementById("failed")
+const progress = document.getElementById("progress")
+const list = document.getElementById("list")
+const consoleBox = document.getElementById("console")
 
-let total=0, success=0, failed=0;
-let offset=0;
+let total=0, success=0, failed=0, offset=0
 
-function logAuto(msg){
-  autoConsole.innerHTML += msg+"<br>";
-  autoConsole.scrollTop = autoConsole.scrollHeight;
+function log(msg){
+  consoleBox.innerHTML += msg+"<br>"
+  consoleBox.scrollTop = consoleBox.scrollHeight
 }
 
 async function getMembers(source){
@@ -119,8 +106,8 @@ async function getMembers(source){
     method:"POST",
     headers:{"Content-Type":"application/json"},
     body:JSON.stringify({group:source, offset, limit:20})
-  });
-  return await res.json();
+  })
+  return await res.json()
 }
 
 async function checkHistoryBatch(members){
@@ -128,9 +115,9 @@ async function checkHistoryBatch(members){
     method:"POST",
     headers:{"Content-Type":"application/json"},
     body:JSON.stringify({members})
-  });
-  const data = await res.json();
-  return data.checked || [];
+  })
+  const data = await res.json()
+  return data.checked || []
 }
 
 async function addMember(m){
@@ -138,147 +125,112 @@ async function addMember(m){
     method:"POST",
     headers:{"Content-Type":"application/json"},
     body:JSON.stringify(m)
-  });
-  return await res.json();
+  })
+  return await res.json()
 }
 
 startBtn.onclick = async ()=>{
-  const source = document.getElementById("source").value.trim();
-  const target = document.getElementById("target").value.trim();
-  if(!source || !target) return alert("Enter source & target groups");
+  const source = document.getElementById("source").value.trim()
+  const target = document.getElementById("target").value.trim()
+  if(!source || !target) return alert("Enter group")
 
-  offset = 0;
-  total = success = failed = 0;
-  memberList.innerHTML = "";
-  autoConsole.innerHTML = "";
-  totalBox.innerText = successBox.innerText = failedBox.innerText = "0";
-  progress.style.width="0%";
-
+  offset = 0
+  total = success = failed = 0
+  list.innerHTML = ""
+  consoleBox.innerHTML = ""
+  totalBox.innerText = successBox.innerText = failedBox.innerText = "0"
+  
   while(true){
-    logAuto(`Fetching 20 members from ${source}...`);
-    const data = await getMembers(source);
-    if(data.error){ logAuto(data.error); break; }
-    if(!data.members.length){ logAuto("No more members."); break; }
+    log(`Fetching 20 members from ${source}...`)
+    const data = await getMembers(source)
+    if(data.error){ log(data.error); break }
+    if(!data.members.length){ log("No more members."); break }
 
-    offset = data.nextOffset;
+    offset = data.nextOffset
 
-    // ===== Skip History Members =====
-    const checked = await checkHistoryBatch(data.members);
-    const toAdd = checked.filter(m=>!m.exists);
+    // ===== Batch check history =====
+    const checked = await checkHistoryBatch(data.members)
+    const toAdd = checked.filter(m=>!m.exists)
 
-    logAuto(`Batch size: ${data.members.length}, to add (skip history): ${toAdd.length}`);
+    log(`Batch size: ${data.members.length}, to add: ${toAdd.length}`)
 
     for(const m of toAdd){
-      const result = await addMember({...m, targetGroup:target});
-      const li = document.createElement("li");
+      const result = await addMember({...m, targetGroup:target})
+      const li = document.createElement("li")
       li.innerHTML = `
-        <img class="avatar" src="${m.avatar}" onerror="this.src='https://via.placeholder.com/40?text=U'">
-        ${m.username||m.user_id} → 
-        <span style="color:${result.status==="success"?"#00ff7f":"#ff4c4c"}">${result.status}</span>
+        <img class="avatar" src="${m.avatar}" onerror="this.src='https://via.placeholder.com/40/00ff7f/000?text=U'">
+        ${m.username||m.user_id}
+        → <span class="${result.status==="success"?"success":"failed"}">${result.status}</span>
         (${result.accountUsed})
-      `;
-      memberList.appendChild(li);
+      `
+      list.appendChild(li)
 
-      total++;
-      totalBox.innerText = total;
-      if(result.status==="success") success++;
-      else failed++;
-      successBox.innerText = success;
-      failedBox.innerText = failed;
+      total++
+      totalBox.innerText = total
 
-      progress.style.width = Math.min((total%100),100) + "%";
+      if(result.status==="success"){ 
+        success++ 
+        await new Promise(r=>setTimeout(r,20000)) // 20s delay after success
+      } else failed++
+      successBox.innerText = success
+      failedBox.innerText = failed
+
+      progress.style.width = Math.min((total%100),100)+"%"
     }
   }
 
-  logAuto("✅ Finished Auto Add (skipped History, no delay)");
+  log("✅ Finished Auto Add")
 }
 
 clearBtn.onclick = ()=>{
-  memberList.innerHTML="";
-  autoConsole.innerHTML="";
-  totalBox.innerText = successBox.innerText = failedBox.innerText = "0";
-  progress.style.width="0%";
+  list.innerHTML = ""
+  consoleBox.innerHTML = ""
+  totalBox.innerText = successBox.innerText = failedBox.innerText = "0"
+  progress.style.width = "0%"
 }
 
 // ===== Load History =====
 async function loadHistory(){
-  try{
-    const res = await fetch("/history");
-    const data = await res.json();
-    const summaryDiv = document.getElementById("history-summary");
-    const historyList = document.getElementById("history-list");
-    const consoleBox = document.getElementById("history-console");
-
-    summaryDiv.innerHTML = "";
-    historyList.innerHTML = "";
-    consoleBox.innerHTML = "";
-
-    // Aggregate by account
-    const accountMap = {};
-    Object.values(data).forEach(item=>{
-      if(!accountMap[item.accountUsed]) accountMap[item.accountUsed]={total:0,success:0,failed:0};
-      accountMap[item.accountUsed].total++;
-      if(item.status==="success") accountMap[item.accountUsed].success++;
-      else accountMap[item.accountUsed].failed++;
-    });
-
-    // Create dashboard cards
-    for(const acc in accountMap){
-      const card = document.createElement("div");
-      card.style.background="#1b1b2b";
-      card.style.padding="15px 20px";
-      card.style.margin="10px";
-      card.style.borderRadius="15px";
-      card.style.width="200px";
-      card.style.display="inline-block";
-      card.style.verticalAlign="top";
-      card.style.boxShadow="0 4px 15px rgba(0,0,0,0.5)";
-      card.innerHTML = `
-        <div style="font-weight:700;color:#00ff7f;margin-bottom:8px;">
-          🧑 ${acc}
-        </div>
-        <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
-          <span>Total</span><span>${accountMap[acc].total}</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;margin-bottom:5px;">
-          <span style="color:#00ff7f;">✔ Success</span><span style="color:#00ff7f;">${accountMap[acc].success}</span>
-        </div>
-        <div style="display:flex;justify-content:space-between;">
-          <span style="color:#ff4c4c;">❌ Failed</span><span style="color:#ff4c4c;">${accountMap[acc].failed}</span>
-        </div>
-      `;
-      summaryDiv.appendChild(card);
-    }
-
-    // Detailed history list
-    Object.values(data).forEach(item=>{
-      const li = document.createElement("li");
-      li.innerHTML = `${item.username||item.user_id} → <span style="color:${item.status==="success"?"#00ff7f":"#ff4c4c"}">${item.status}</span> (${item.accountUsed})`;
-      historyList.appendChild(li);
-    });
-
-    consoleBox.innerHTML = `✅ Loaded ${Object.values(data).length} history entries.`;
-  }catch(err){
-    document.getElementById("history-console").innerHTML = `❌ Error: ${err.message}`;
-  }
+  const res = await fetch("/history")
+  const data = await res.json()
+  const historyList = document.getElementById("historyList")
+  historyList.innerHTML = ""
+  Object.values(data).forEach(h=>{
+    const li = document.createElement("li")
+    li.innerHTML = `
+      <img class="avatar" src="${h.avatar||'https://via.placeholder.com/40/00ff7f/000?text=U'}" onerror="this.src='https://via.placeholder.com/40/00ff7f/000?text=U'">
+      ${h.username||h.user_id} → <span class="${h.status==="success"?"success":"failed"}">${h.status}</span>
+      (${h.accountUsed}) <br>
+      <small>${h.reason} | ${new Date(h.timestamp).toLocaleString()}</small>
+    `
+    historyList.appendChild(li)
+  })
 }
 
-// ===== Load Accounts =====
+// ===== Load Accounts Dashboard =====
 async function loadAccounts(){
-  try{
-    const res = await fetch("/account-status");
-    const data = await res.json();
-    const list = document.getElementById("account-list");
-    list.innerHTML="";
-    Object.values(data).forEach(acc=>{
-      const li = document.createElement("li");
-      li.innerHTML = `${acc.phone || acc.id} → <span style="color:${acc.status==="active"?"#00ff7f":acc.status==="floodwait"?"#ffcc00":"#ff4c4c"}">${acc.status}</span>`;
-      list.appendChild(li);
-    });
-  }catch(err){
-    document.getElementById("account-list").innerHTML = `<li>Error: ${err.message}</li>`;
-  }
+  const res = await fetch("/account-status")
+  const data = await res.json()
+  const container = document.getElementById("accountCards")
+  container.innerHTML = ""
+  Object.values(data).forEach(acc=>{
+    const card = document.createElement("div")
+    let cls = "account-card active"
+    if(acc.status==="floodwait") cls="account-card floodwait"
+    else if(acc.status==="error") cls="account-card error"
+    const floodText = acc.floodWaitUntil ? `Ready: ${new Date(acc.floodWaitUntil).toLocaleString()}` : ""
+    card.className = cls
+    card.innerHTML = `
+      <div class="phone">${acc.phone}</div>
+      <div>Status: ${acc.status}</div>
+      <div class="flood">${floodText}</div>
+    `
+    container.appendChild(card)
+  })
 }
+
+// Auto-refresh dashboard every 5s
+setInterval(()=>{ if(accountsSection.style.display==="block") loadAccounts() }, 5000)
 </script>
 
 </body>
