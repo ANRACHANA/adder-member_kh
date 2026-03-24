@@ -4,49 +4,139 @@
 <meta charset="UTF-8">
 <title>Telegram Auto-Add PRO MAX 🚀</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono&display=swap" rel="stylesheet">
+
 <style>
-*{box-sizing:border-box;}
-body{font-family:'JetBrains Mono',monospace;background:#0f0f10;color:#fff;margin:0;}
-.container{max-width:1000px;margin:auto;padding:15px;}
-section{background:#1e1e2a;border-radius:20px;padding:20px;margin-bottom:20px;}
-.card-title{font-size:22px;font-weight:700;color:#00ff7f;text-align:center;margin-bottom:10px;}
-input,select{width:100%;padding:10px;margin-top:10px;border-radius:10px;background:#111;color:#fff;border:none;}
-button{width:100%;padding:12px;margin-top:10px;border:none;border-radius:10px;background:#00ff7f;font-weight:700;cursor:pointer;}
-button:hover{background:#00cc66;color:#fff;}
+body{font-family:Arial;background:#0f0f10;color:#fff;margin:0;}
+.container{max-width:1100px;margin:auto;padding:15px;}
+.nav{display:flex;background:#111;padding:10px;gap:10px;}
+.nav button{flex:1;padding:10px;background:#222;border:none;color:#fff;cursor:pointer;}
+.nav button.active{background:#00ff7f;color:#000;font-weight:bold;}
+
+.page{display:none;}
+.page.active{display:block;}
+
+section{background:#1e1e2a;border-radius:10px;padding:15px;margin-top:10px;}
+
+table{width:100%;border-collapse:collapse;}
+td,th{padding:8px;border-bottom:1px solid #333;}
+th{color:#00ff7f;}
+
 .success{color:#00ff7f;}
 .failed{color:#ff4c4c;}
-.avatar{width:25px;height:25px;border-radius:50%;}
-ul{list-style:none;padding:0;max-height:300px;overflow-y:auto;}
-.console{background:#111;padding:10px;border-radius:10px;height:150px;overflow:auto;font-size:12px;}
-.progress-bar{background:#111;height:10px;border-radius:10px;margin-top:10px;}
-.progress{background:#00ff7f;height:10px;width:0%;border-radius:10px;}
+
+.console{background:#111;height:150px;overflow:auto;padding:10px;border-radius:10px;}
+.progress{height:10px;background:#00ff7f;width:0%;border-radius:10px;}
+.bar{background:#111;border-radius:10px;margin-top:10px;}
 </style>
 </head>
+
 <body>
+
+<!-- NAVBAR -->
+<div class="nav">
+<button class="tab active" data-page="auto">Auto Add</button>
+<button class="tab" data-page="accounts">Accounts</button>
+<button class="tab" data-page="history">History</button>
+</div>
 
 <div class="container">
 
+<!-- AUTO ADD -->
+<div id="auto" class="page active">
 <section>
-<div class="card-title">Auto Add Members</div>
-
+<h3>Auto Add Members</h3>
 <input id="source" placeholder="Source Group">
 <input id="target" placeholder="Target Group">
-<button id="start">START AUTO ADD</button>
+<button id="start">START</button>
 
 <div id="status"></div>
 <div id="counter">0</div>
-
-<div class="progress-bar"><div id="progress" class="progress"></div></div>
+<div class="bar"><div id="progress" class="progress"></div></div>
 
 <ul id="list"></ul>
 <div class="console" id="console"></div>
-
 </section>
+</div>
+
+<!-- ACCOUNTS -->
+<div id="accounts" class="page">
+<section>
+<h3>Accounts</h3>
+<table>
+<thead><tr><th>ID</th><th>Phone</th><th>Status</th><th>FloodWait</th></tr></thead>
+<tbody id="accountsTable"></tbody>
+</table>
+</section>
+</div>
+
+<!-- HISTORY -->
+<div id="history" class="page">
+<section>
+<h3>History</h3>
+<ul id="historyList"></ul>
+</section>
+</div>
 
 </div>
 
 <script>
+// ===== NAV SWITCH =====
+document.querySelectorAll(".tab").forEach(btn=>{
+  btn.onclick=()=>{
+    document.querySelectorAll(".tab").forEach(b=>b.classList.remove("active"))
+    btn.classList.add("active")
+
+    document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"))
+    document.getElementById(btn.dataset.page).classList.add("active")
+  }
+})
+
+// ===== LOAD ACCOUNTS =====
+async function loadAccounts(){
+  const res=await fetch("/account-status")
+  const data=await res.json()
+  const table=document.getElementById("accountsTable")
+  table.innerHTML=""
+
+  Object.keys(data).forEach(id=>{
+    const a=data[id]
+    let flood="-"
+
+    if(a.floodWaitUntil && a.floodWaitUntil>Date.now()){
+      flood=Math.floor((a.floodWaitUntil-Date.now())/1000)+"s"
+    }
+
+    table.innerHTML+=`
+    <tr>
+      <td>${id}</td>
+      <td>${a.phone}</td>
+      <td>${a.status}</td>
+      <td>${flood}</td>
+    </tr>`
+  })
+}
+setInterval(loadAccounts,2000)
+loadAccounts()
+
+// ===== LOAD HISTORY =====
+async function loadHistory(){
+  const res=await fetch("/history")
+  const data=await res.json()
+  const box=document.getElementById("historyList")
+  box.innerHTML=""
+
+  Object.values(data).slice(-50).reverse().forEach(h=>{
+    box.innerHTML+=`
+    <li class="${h.status}">
+      ${h.username||h.user_id} → ${h.status}
+      <br><small>${h.reason}</small>
+    </li>`
+  })
+}
+setInterval(loadHistory,3000)
+loadHistory()
+
+// ===== AUTO ADD =====
 const startBtn=document.getElementById("start")
 const status=document.getElementById("status")
 const counter=document.getElementById("counter")
@@ -54,22 +144,18 @@ const progress=document.getElementById("progress")
 const list=document.getElementById("list")
 const consoleBox=document.getElementById("console")
 
-let offset=0
-let total=0
-let accIndex=0
+let offset=0,total=0,accIndex=0
 
 function log(msg){
   consoleBox.innerHTML+=msg+"<br>"
   consoleBox.scrollTop=consoleBox.scrollHeight
 }
 
-// ===== Get accounts =====
 async function getAccounts(){
   const res=await fetch("/account-status")
   return await res.json()
 }
 
-// ===== Get next account =====
 function nextAccount(data,index){
   const now=Date.now()
   const keys=Object.keys(data)
@@ -83,100 +169,62 @@ function nextAccount(data,index){
   return null
 }
 
-// ===== Start =====
 startBtn.onclick=async()=>{
   const source=document.getElementById("source").value.trim()
   const target=document.getElementById("target").value.trim()
-
   if(!source||!target) return alert("Enter group")
 
-  offset=0
-  total=0
-  accIndex=0
-  list.innerHTML=""
-  consoleBox.innerHTML=""
+  offset=0; total=0; accIndex=0
+  list.innerHTML=""; consoleBox.innerHTML=""
 
   while(true){
-
-    // ===== Fetch 10 =====
-    status.innerText="Fetching 10 members..."
+    status.innerText="Fetching 10..."
     const res=await fetch("/members",{
       method:"POST",
       headers:{"Content-Type":"application/json"},
       body:JSON.stringify({group:source, offset, limit:10})
     })
-
     const data=await res.json()
-    if(data.error){ alert(data.error); break }
+    if(data.error){alert(data.error); break}
 
     const members=data.members||[]
-    if(members.length===0){
-      status.innerText="No more members"
-      break
-    }
-
+    if(members.length===0) break
     offset=data.nextOffset
 
     const accounts=await getAccounts()
 
-    // ===== Add =====
-    status.innerText="Adding batch..."
-
     for(const m of members){
-
       const acc=nextAccount(accounts,accIndex)
-      if(!acc){
-        status.innerText="All accounts FloodWait..."
-        await new Promise(r=>setTimeout(r,5000))
-        continue
-      }
+      if(!acc){await new Promise(r=>setTimeout(r,5000)); continue}
 
       accIndex=acc.index
-
-      const now=new Date().toLocaleTimeString()
-      log(`[${now}] ${acc.id} → ${m.username||m.user_id}`)
+      log(`${acc.id} → ${m.username||m.user_id}`)
 
       const addRes=await fetch("/add-member",{
         method:"POST",
         headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({
-          username:m.username,
-          user_id:m.user_id,
-          access_hash:m.access_hash,
-          targetGroup:target
-        })
+        body:JSON.stringify({...m,targetGroup:target})
       })
 
       const result=await addRes.json()
 
-      const li=document.createElement("li")
-      li.innerHTML=`
-      <img class="avatar" src="${m.avatar}" onerror="this.src='https://via.placeholder.com/40?text=U'">
-      ${m.username||m.user_id}
-      → <span class="${result.status==="success"?"success":"failed"}">${result.status}</span>
-      (${acc.id})
-      `
-      list.appendChild(li)
+      list.innerHTML+=`<li class="${result.status}">${m.username||m.user_id} → ${result.status}</li>`
 
       total++
       counter.innerText=total
       progress.style.width=(total%100)+"%"
 
-      if(result.status==="success"){
-        accIndex++
-      }
+      if(result.status==="success") accIndex++
     }
 
-    // ===== Countdown =====
     let wait=30
-    while(wait>0){
-      status.innerText=`Next batch in ${wait}s...`
+    while(wait--){
+      status.innerText=`Next batch in ${wait}s`
       await new Promise(r=>setTimeout(r,1000))
-      wait--
     }
   }
 
-  status.innerText="Finished ✅"
+  status.innerText="Finished"
 }
 </script>
 
