@@ -136,7 +136,7 @@ function getAvailableAccount(){
   return accounts.find(a=>a.status==="active" && (!a.floodWaitUntil || a.floodWaitUntil<now))
 }
 
-// ===== Auto Join Group =====
+// ===== Auto Join (Single) =====
 async function autoJoin(client, group){
   try{ await client.getEntity(group) }
   catch{
@@ -148,50 +148,58 @@ async function autoJoin(client, group){
 }
 
 // ===== Auto Join All Accounts =====
-async function autoJoinAllAccounts(group){
+async function autoJoinAllAccounts(group, logCallback){
   for(const acc of accounts){
-    if(acc.status!=="active") continue
     try{
-      const client=await getClient(acc)
+      const client = await getClient(acc)
       await autoJoin(client, group)
-      console.log(`✅ ${acc.id} joined ${group}`)
-      await sleep(500) // small delay
+      logCallback && logCallback(`✅ ${acc.phone} joined ${group}`)
+      await sleep(2000)
     }catch(e){
-      console.log(`❌ ${acc.id} failed join: ${e.message}`)
+      logCallback && logCallback(`❌ ${acc.phone} failed: ${e.message}`)
     }
   }
 }
 
-// ===== Members (Batch) =====
+// ===== /auto-join Route =====
+app.post('/auto-join', async(req,res)=>{
+  const { group } = req.body
+  if(!group) return res.json({status:"failed",reason:"Missing group"})
+  let logs = []
+  await autoJoinAllAccounts(group, msg => logs.push(msg))
+  res.json({status:"done",logs})
+})
+
+// ===== Members =====
 app.post('/members', async(req,res)=>{
   try{
-    const {group, offset=0, limit=50}=req.body
+    const {group, offset=0, limit=100}=req.body
     const acc=getAvailableAccount()
     if(!acc) return res.json({error:"No active account"})
     const client=await getClient(acc)
-    await autoJoinAllAccounts(group) // join all accounts first
+    await autoJoin(client,group)
     const entity=await client.getEntity(group)
     const participants=await client.getParticipants(entity,{limit,offset})
-    const members=participants.filter(p=>!p.bot).map(p=>({
+    const members=participants.filter(p=>!p.bot).map(p=>(({
       user_id:p.id,
       username:p.username,
       access_hash:p.access_hash,
       avatar:`https://t.me/i/userpic/320/${p.id}.jpg`
-    }))
+    })))
     res.json({members, nextOffset:offset+participants.length, hasMore:participants.length===limit})
   }catch(err){
     res.json({error:err.message})
   }
 })
 
-// ===== Add Member (Fast, Save Success Only) =====
-app.post('/add-member',async(req,res)=>{
+// ===== Add Member =====
+app.post('/add-member', async(req,res)=>{
   try{
     const {username,user_id,access_hash,targetGroup}=req.body
     const acc=getAvailableAccount()
     if(!acc) return res.json({status:"failed",reason:"All FloodWait",accountUsed:"none"})
     const client=await getClient(acc)
-    await autoJoinAllAccounts(targetGroup) // join all accounts before adding
+    await autoJoin(client,targetGroup)
     let status="failed", reason="unknown"
     try{
       let userEntity
@@ -212,59 +220,15 @@ app.post('/add-member',async(req,res)=>{
         reason=`FloodWait ${wait}s | Ready ${new Date(until).toLocaleString()}`
       }else reason=err.message
     }
-
     if(status==="success"){
       await push(ref(db,'history'),{
         username,user_id,status,reason,accountUsed:acc.id,timestamp:Date.now()
       })
     }
-
     res.json({status,reason,accountUsed:acc.id})
   }catch(err){
     res.json({status:"failed",reason:err.message,accountUsed:"unknown"})
   }
-})
-
-// ===== Save Success API =====
-app.post('/save-success', async(req,res)=>{
-  try{
-    const { username, user_id, accountUsed } = req.body
-    await push(ref(db,'history'),{
-      username, user_id, status:'success', reason:'joined', accountUsed, timestamp:Date.now()
-    })
-    res.json({status:'ok'})
-  }catch(err){
-    res.json({status:'failed',reason:err.message})
-  }
-})
-
-// ===== Add / Upload Accounts =====
-app.post('/add-account', async(req,res)=>{
-  try{
-    const {phone, api_id, api_hash, session}=req.body
-    if(!phone||!api_id||!api_hash||!session) return res.json({status:"failed",reason:"Missing fields"})
-    const id=`TG_${Date.now()}`
-    const account={phone, api_id:Number(api_id), api_hash, session, id, status:"active", floodWaitUntil:null}
-    const saved=await saveAccountToFirebase(account)
-    if(!saved) return res.json({status:"skipped",reason:"Duplicate"})
-    accounts.push(account)
-    res.json({status:"success",account})
-  }catch(err){
-    res.json({status:"failed",reason:err.message})
-  }
-})
-
-app.post('/upload-accounts', async(req,res)=>{
-  try{
-    const {accountsList}=req.body
-    let success=0, skipped=0
-    for(const acc of accountsList){
-      const account={phone:acc.phone, api_id:Number(acc.api_id), api_hash:acc.api_hash, session:acc.session, id:`TG_${Date.now()}_${Math.random()}`, status:"active", floodWaitUntil:null}
-      const saved=await saveAccountToFirebase(account)
-      if(saved){ accounts.push(account); success++ }else skipped++
-    }
-    res.json({status:"done",success,skipped})
-  }catch(err){ res.json({status:"failed",reason:err.message}) }
 })
 
 // ===== Account Status / History =====
@@ -280,6 +244,7 @@ app.get('/history', async(req,res)=>{
 // ===== Frontend =====
 const __filename=fileURLToPath(import.meta.url)
 const __dirname=path.dirname(__filename)
+app.use(express.static(__dirname)) // allow static files like default_avatar.png
 app.get('/', (req,res)=>res.sendFile(path.join(__dirname,'index.html')))
 
 const PORT=process.env.PORT||3000
