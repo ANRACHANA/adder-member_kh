@@ -424,18 +424,7 @@ startBtn.onclick = async () => {
   loadingBarWrapper.classList.add("hidden")
   status.innerText = "Finished ✅"
 }
-// ===== Countdown Delay (Live) =====
-async function countdown(seconds, label="Waiting"){
-  for(let i = seconds; i > 0; i--){
-    // Update status text
-    status.innerText = `${label}: ${i}s`
-    
-    // 🔹 Log live countdown
-    log(`⏳ ${label} ${i}s`, null, "yellow")
-    
-    await new Promise(r => setTimeout(r, 1000))
-  }
-}
+
 </script>
 </div>
 </body>
