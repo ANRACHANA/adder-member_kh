@@ -252,6 +252,7 @@ app.post('/members', async (req, res) => {
 })
 
 // ===== Add Member =====
+// ===== Add Member =====
 app.post('/add-member', async(req,res)=>{
   try{
     let {username,user_id,access_hash,targetGroup}=req.body
@@ -281,6 +282,7 @@ app.post('/add-member', async(req,res)=>{
     }
 
     let status="failed", reason="unknown"
+    let saveHistory = false // 🔹 only save success or FloodWait
 
     try{
       let userEntity
@@ -303,6 +305,7 @@ app.post('/add-member', async(req,res)=>{
 
       status="success"
       reason="joined"
+      saveHistory = true // 🔹 save success
 
       acc.addCount = (acc.addCount||0)+1
       await update(ref(db,`accounts/${acc.id}`),{addCount:acc.addCount})
@@ -322,19 +325,24 @@ app.post('/add-member', async(req,res)=>{
         })
 
         reason=`FloodWait ${wait}s | Ready ${new Date(until).toLocaleString()}`
+        saveHistory = true // 🔹 save FloodWait
       }else{
         reason=err.message
+        saveHistory = false // ❌ do NOT save other failed attempts
       }
     }
 
-    await push(ref(db,'history'),{
-      username:cleanUsername || username,
-      user_id,
-      status,
-      reason,
-      accountUsed:acc.phone||acc.id,
-      timestamp:Date.now()
-    })
+    // 🔹 Save history only if success or FloodWait
+    if(saveHistory){
+      await push(ref(db,'history'),{
+        username:cleanUsername || username,
+        user_id,
+        status,
+        reason,
+        accountUsed:acc.phone||acc.id,
+        timestamp:Date.now()
+      })
+    }
 
     res.json({status,reason,accountUsed:acc.phone||acc.id})
 
