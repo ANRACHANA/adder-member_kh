@@ -103,9 +103,11 @@ thead, tbody tr{display:table;width:100%;table-layout:fixed;}
     <div id="loadingBar"></div>
   </div>
 
+ 
   <!-- Status & Counter -->
-  <div id="status">Ready</div>
-  <div id="counter">0</div>
+<div id="status">Ready</div>
+<div id="counter">0</div>
+<div id="summary">Total: 0 | ✅ Success: 0 | ❌ Failed: 0 | ⏭️ Skipped: 0</div>
 
   <!-- Progress Bar -->
   <div class="progress-bar">
@@ -135,6 +137,7 @@ thead, tbody tr{display:table;width:100%;table-layout:fixed;}
 <button id="refreshAccounts">Refresh Accounts</button>
 
 <div class="card-title">History</div>
+<div id="summary">Total: 0 | ✅ Success: 0 </div>
 <table id="historyTable">
   <thead>
     <tr>
@@ -157,25 +160,35 @@ document.getElementById("btnAutoAddPage").onclick=()=>{autoAddPage.classList.rem
 document.getElementById("btnHistoryPage").onclick=()=>{historyPage.classList.remove("hidden");autoAddPage.classList.add("hidden")}
 
 // ===== Live History =====
-const historyBody=document.getElementById("historyBody")
-let historySet=new Set()
+const historyBody = document.getElementById("historyBody")
+let historySet = new Set()
 
-async function loadHistory(){
-  const res=await fetch("/history")
-  const data=await res.json()
-  historyBody.innerHTML=""
+async function loadHistory() {
+  const res = await fetch("/history")
+  const data = await res.json()
+  historyBody.innerHTML = ""
   historySet.clear()
-  Object.values(data).forEach(h=>{
-    const tr=document.createElement("tr")
-    tr.innerHTML=`<td>${h.username||h.user_id}</td>
+
+  let total = 0
+  let success = 0
+
+  Object.values(data).forEach(h => {
+    const tr = document.createElement("tr")
+    tr.innerHTML = `<td>${h.username || h.user_id}</td>
       <td class="${h.status==="success"?"success":(h.status==="failed"?"failed":"skipped")}">${h.status}</td>
       <td>${h.reason}</td>
       <td>${h.accountUsed||"-"}</td>
       <td>${new Date(h.timestamp).toLocaleString()}</td>`
     historyBody.appendChild(tr)
-    if(h.user_id) historySet.add(h.user_id)
-    else if(h.username) historySet.add(h.username)
+
+    const key = h.user_id || h.username
+    if (key) historySet.add(key)
+
+    total++
+    if (h.status === "success") success++
   })
+
+  summaryDiv.innerText = `Total: ${total} | ✅ Success: ${success}`
 }
 document.getElementById("refreshHistory").onclick=loadHistory
 setInterval(loadHistory,5000)
@@ -208,7 +221,15 @@ const list=document.getElementById("list")
 const consoleBox=document.getElementById("console")
 let offset=0,total=0,accIndex=0
 
-function log(msg,user_id=null,color=null){
+const summaryDiv = document.getElementById("summary")
+let stats = { total:0, success:0, failed:0, skipped:0 }
+
+function updateSummary() {
+  summaryDiv.innerText = `Total: ${stats.total} | ✅ Success: ${stats.success} | ❌ Failed: ${stats.failed} | ⏭️ Skipped: ${stats.skipped}`
+}
+
+// នៅ function log() ឬ auto-add ដាក់បន្ទាប់ពី log message
+function log(msg, user_id=null, color=null, status=null){
     const li=document.createElement("li")
     li.innerHTML=msg
     if(color) li.style.color=color
@@ -216,7 +237,15 @@ function log(msg,user_id=null,color=null){
     list.scrollTop=list.scrollHeight
     consoleBox.innerHTML+=msg+"<br>"
     consoleBox.scrollTop=consoleBox.scrollHeight
+
     if(user_id) historySet.add(user_id)
+
+    // Update stats
+    stats.total++
+    if(status==="success") stats.success++
+    else if(status==="failed") stats.failed++
+    else if(status==="skipped") stats.skipped++
+    updateSummary()
 }
 
 async function getAccounts(){ const res=await fetch("/account-status"); return await res.json() }
@@ -423,6 +452,21 @@ startBtn.onclick = async () => {
 
   loadingBarWrapper.classList.add("hidden")
   status.innerText = "Finished ✅"
+}
+// ===== Countdown Delay (Live) =====
+async function countdown(seconds, label="Waiting"){
+  for(let i = seconds; i > 0; i--){
+    status.innerText = `${label}: ${i}s`
+    const li = document.createElement("li")
+    li.innerHTML = `⏳ ${label} ${i}s`
+    li.style.color = "yellow"
+    list.appendChild(li)
+    list.scrollTop = list.scrollHeight
+    consoleBox.innerHTML += `⏳ ${label} ${i}s<br>`
+    consoleBox.scrollTop = consoleBox.scrollHeight
+
+    await new Promise(r => setTimeout(r, 1000))
+  }
 }
 </script>
 </div>
