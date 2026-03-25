@@ -55,6 +55,20 @@ th{background:#222;}
 
 <!-- ===== History & Accounts ===== -->
 <section id="historyPage" class="hidden">
+  <div class="card-title">Accounts Status</div>
+<table id="accountTable">
+  <thead>
+    <tr>
+      <th>Phone</th>
+      <th>Status</th>
+      <th>FloodWait Until</th>
+      <th>Last Checked</th>
+      <th>Add Count</th>
+    </tr>
+  </thead>
+  <tbody id="accountBody"></tbody>
+</table>
+<button id="refreshAccounts">Refresh Accounts</button>
 <div class="card-title">History</div>
 <table id="historyTable">
   <thead>
@@ -70,20 +84,7 @@ th{background:#222;}
 </table>
 <button id="refreshHistory">Refresh History</button>
 
-<div class="card-title">Accounts Status</div>
-<table id="accountTable">
-  <thead>
-    <tr>
-      <th>Phone</th>
-      <th>Status</th>
-      <th>FloodWait Until</th>
-      <th>Last Checked</th>
-      <th>Add Count</th>
-    </tr>
-  </thead>
-  <tbody id="accountBody"></tbody>
-</table>
-<button id="refreshAccounts">Refresh Accounts</button>
+
 </section>
 
 <script>
