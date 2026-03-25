@@ -24,6 +24,19 @@ const db = getDatabase()
 const accounts = []
 const clients = {}
 
+// ===== Normalize Username =====
+function normalizeUsername(input){
+  if(!input) return null
+  let u = input.trim()
+
+  if(u.includes("t.me/")){
+    u = u.split("/").pop()
+  }
+
+  u = u.replace("@","").trim()
+  return u
+}
+
 // ===== Save Account =====
 async function saveAccountToFirebase(account){
   try{
@@ -31,6 +44,7 @@ async function saveAccountToFirebase(account){
     const data = snap.val() || {}
     const exists = Object.values(data).some(a => a.phone === account.phone)
     if(exists) return false
+
     await update(ref(db,`accounts/${account.id}`),{
       phone:account.phone,
       api_id:account.api_id,
@@ -42,6 +56,7 @@ async function saveAccountToFirebase(account){
       lastChecked:null,
       createdAt:Date.now()
     })
+
     console.log(`✅ Saved ${account.phone}`)
     return true
   }catch(err){
@@ -57,9 +72,18 @@ while(process.env[`TG_ACCOUNT_${i}_PHONE`]){
   const api_hash=process.env[`TG_ACCOUNT_${i}_API_HASH`]
   const session=process.env[`TG_ACCOUNT_${i}_SESSION`]
   const phone=process.env[`TG_ACCOUNT_${i}_PHONE`]
+
   if(!api_id||!api_hash||!session){i++; continue}
 
-  const account={phone, api_id, api_hash, session, id:`TG_ACCOUNT_${i}`, status:"pending", floodWaitUntil:null, lastChecked:null, addCount:0}
+  const account={
+    phone, api_id, api_hash, session,
+    id:`TG_ACCOUNT_${i}`,
+    status:"pending",
+    floodWaitUntil:null,
+    lastChecked:null,
+    addCount:0
+  }
+
   accounts.push(account)
   saveAccountToFirebase(account)
   i++
@@ -99,20 +123,29 @@ async function checkTGAccount(account){
     await refreshAccountStatus(account)
     const client=await getClient(account)
     await client.getMe()
+
     account.status="active"
     account.floodWaitUntil=null
     account.lastChecked=Date.now()
-    await update(ref(db,`accounts/${account.id}`),{status:"active", lastChecked:account.lastChecked, floodWaitUntil:null})
+
+    await update(ref(db,`accounts/${account.id}`),{
+      status:"active",
+      lastChecked:account.lastChecked,
+      floodWaitUntil:null
+    })
   }catch(err){
     const wait=parseFlood(err)
     let status="error", floodUntil=null
+
     if(wait){
       status="floodwait"
       floodUntil=Date.now()+wait*1000
       account.floodWaitUntil=floodUntil
       account.status="floodwait"
     }
+
     account.lastChecked=Date.now()
+
     await update(ref(db,`accounts/${account.id}`),{
       status,
       floodWaitUntil:floodUntil,
@@ -139,7 +172,7 @@ function getAvailableAccount(){
   return accounts.find(a=>a.status==="active" && (!a.floodWaitUntil || a.floodWaitUntil<now))
 }
 
-// ===== Auto Join (Single) =====
+// ===== Auto Join =====
 async function autoJoin(client, group){
   try{ await client.getEntity(group) }
   catch{
@@ -150,98 +183,117 @@ async function autoJoin(client, group){
   }
 }
 
-// ===== Auto Join All Accounts =====
-async function autoJoinAllAccounts(group, logCallback){
+// ===== Auto Join All =====
+async function autoJoinAllAccounts(group){
   for(const acc of accounts){
     try{
       const client = await getClient(acc)
       await autoJoin(client, group)
-      logCallback && logCallback(`✅ ${acc.phone} joined ${group}`)
-      await sleep(2000)
-    }catch(e){
-      logCallback && logCallback(`❌ ${acc.phone} failed: ${e.message}`)
-    }
+      await sleep(1000)
+    }catch(e){}
   }
 }
-
-// ===== /auto-join Route =====
-app.post('/auto-join', async(req,res)=>{
-  const { group } = req.body
-  if(!group) return res.json({status:"failed",reason:"Missing group"})
-  let logs = []
-  await autoJoinAllAccounts(group, msg => logs.push(msg))
-  res.json({status:"done",logs})
-})
-
-// ===== Members =====
-app.post('/members', async(req,res)=>{
-  try{
-    const {group, offset=0, limit=100}=req.body
-    const acc=getAvailableAccount()
-    if(!acc) return res.json({error:"No active account"})
-    const client=await getClient(acc)
-    await autoJoin(client,group)
-    const entity=await client.getEntity(group)
-    const participants=await client.getParticipants(entity,{limit,offset})
-    const members=participants.filter(p=>!p.bot).map(p=>(({
-      user_id:p.id,
-      username:p.username,
-      access_hash:p.access_hash,
-      avatar:`https://t.me/i/userpic/320/${p.id}.jpg`
-    })))
-    res.json({members, nextOffset:offset+participants.length, hasMore:participants.length===limit})
-  }catch(err){
-    res.json({error:err.message})
-  }
-})
 
 // ===== Add Member =====
 app.post('/add-member', async(req,res)=>{
   try{
-    const {username,user_id,access_hash,targetGroup}=req.body
+    let {username,user_id,access_hash,targetGroup}=req.body
+
     const acc=getAvailableAccount()
     if(!acc) return res.json({status:"failed",reason:"All FloodWait",accountUsed:"none"})
+
     const client=await getClient(acc)
     await autoJoin(client,targetGroup)
+
+    // normalize username
+    const cleanUsername = normalizeUsername(username)
+
+    // ===== Check Duplicate =====
+    const historySnap = await get(ref(db,'history'))
+    const historyData = historySnap.val() || {}
+
+    const exists = Object.values(historyData).some(h =>
+      h.username === cleanUsername || h.user_id === user_id
+    )
+
+    if(exists){
+      return res.json({
+        status:"skipped",
+        reason:"Already in history",
+        accountUsed:acc.phone||acc.id
+      })
+    }
+
     let status="failed", reason="unknown"
+
     try{
       let userEntity
-      if(username) userEntity=await client.getEntity(username)
-      else userEntity=new Api.InputUser({userId:user_id, accessHash:BigInt(access_hash)})
+
+      if(cleanUsername){
+        userEntity = await client.getEntity(cleanUsername)
+      }else{
+        userEntity = new Api.InputUser({
+          userId:user_id,
+          accessHash:BigInt(access_hash)
+        })
+      }
+
       const group=await client.getEntity(targetGroup)
-      await client.invoke(new Api.channels.InviteToChannel({channel:group, users:[userEntity]}))
+
+      await client.invoke(new Api.channels.InviteToChannel({
+        channel:group,
+        users:[userEntity]
+      }))
+
       status="success"
       reason="joined"
-      // Increment AddCount
+
       acc.addCount = (acc.addCount||0)+1
       await update(ref(db,`accounts/${acc.id}`),{addCount:acc.addCount})
+
       await sleep(30000 + Math.floor(Math.random()*10000))
+
     }catch(err){
       const wait=parseFlood(err)
       if(wait){
         const until=Date.now()+wait*1000
         acc.floodWaitUntil=until
         acc.status="floodwait"
-        await update(ref(db,`accounts/${acc.id}`),{status:"floodwait",floodWaitUntil:until})
+
+        await update(ref(db,`accounts/${acc.id}`),{
+          status:"floodwait",
+          floodWaitUntil:until
+        })
+
         reason=`FloodWait ${wait}s | Ready ${new Date(until).toLocaleString()}`
-      }else reason=err.message
+      }else{
+        reason=err.message
+      }
     }
-    if(status==="success"){
-      await push(ref(db,'history'),{
-        username,user_id,status,reason,accountUsed:acc.phone||acc.id,timestamp:Date.now()
-      })
-    }
+
+    // ===== Save ALL History =====
+    await push(ref(db,'history'),{
+      username:cleanUsername || username,
+      user_id,
+      status,
+      reason,
+      accountUsed:acc.phone||acc.id,
+      timestamp:Date.now()
+    })
+
     res.json({status,reason,accountUsed:acc.phone||acc.id})
+
   }catch(err){
     res.json({status:"failed",reason:err.message,accountUsed:"unknown"})
   }
 })
 
-// ===== Account Status / History =====
+// ===== Status APIs =====
 app.get('/account-status', async(req,res)=>{
   const snap=await get(ref(db,'accounts'))
   res.json(snap.val()||{})
 })
+
 app.get('/history', async(req,res)=>{
   const snap=await get(ref(db,'history'))
   res.json(snap.val()||{})
@@ -250,6 +302,7 @@ app.get('/history', async(req,res)=>{
 // ===== Frontend =====
 const __filename=fileURLToPath(import.meta.url)
 const __dirname=path.dirname(__filename)
+
 app.use(express.static(__dirname))
 app.get('/', (req,res)=>res.sendFile(path.join(__dirname,'index.html')))
 
