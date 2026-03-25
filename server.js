@@ -57,7 +57,7 @@ while(process.env[`TG_ACCOUNT_${i}_PHONE`]){
   const phone=process.env[`TG_ACCOUNT_${i}_PHONE`]
   if(!api_id||!api_hash||!session){i++; continue}
 
-  const account={phone, api_id, api_hash, session, id:`TG_ACCOUNT_${i}`, status:"pending", floodWaitUntil:null}
+  const account={phone, api_id, api_hash, session, id:`TG_ACCOUNT_${i}`, status:"pending", floodWaitUntil:null, lastChecked:null}
   accounts.push(account)
   saveAccountToFirebase(account)
   i++
@@ -99,7 +99,8 @@ async function checkTGAccount(account){
     await client.getMe()
     account.status="active"
     account.floodWaitUntil=null
-    await update(ref(db,`accounts/${account.id}`),{status:"active", phone:account.phone,lastChecked:Date.now(),floodWaitUntil:null})
+    account.lastChecked=Date.now()
+    await update(ref(db,`accounts/${account.id}`),{status:"active", lastChecked:account.lastChecked, floodWaitUntil:null})
   }catch(err){
     const wait=parseFlood(err)
     let status="error", floodUntil=null
@@ -109,12 +110,12 @@ async function checkTGAccount(account){
       account.floodWaitUntil=floodUntil
       account.status="floodwait"
     }
+    account.lastChecked=Date.now()
     await update(ref(db,`accounts/${account.id}`),{
       status,
       floodWaitUntil:floodUntil,
       error:err.message,
-      phone:account.phone,
-      lastChecked:Date.now()
+      lastChecked:account.lastChecked
     })
   }
 }
@@ -244,7 +245,7 @@ app.get('/history', async(req,res)=>{
 // ===== Frontend =====
 const __filename=fileURLToPath(import.meta.url)
 const __dirname=path.dirname(__filename)
-app.use(express.static(__dirname)) // allow static files
+app.use(express.static(__dirname))
 app.get('/', (req,res)=>res.sendFile(path.join(__dirname,'index.html')))
 
 const PORT=process.env.PORT||3000
