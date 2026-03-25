@@ -28,13 +28,16 @@ const clients = {}
 function normalizeUsername(input){
   if(!input) return null
   let u = input.trim()
+  if(u.includes("t.me/")) u = u.split("/").pop()
+  return u.replace("@","").trim()
+}
 
-  if(u.includes("t.me/")){
-    u = u.split("/").pop()
-  }
-
-  u = u.replace("@","").trim()
-  return u
+// ===== Normalize Group =====
+function normalizeGroup(group){
+  if(!group) return group
+  let g = group.trim()
+  if(g.includes("t.me/")) g = g.split("/").pop()
+  return g
 }
 
 // ===== Save Account =====
@@ -92,7 +95,12 @@ while(process.env[`TG_ACCOUNT_${i}_PHONE`]){
 // ===== Telegram Client =====
 async function getClient(account){
   if(clients[account.id]) return clients[account.id]
-  const client=new TelegramClient(new StringSession(account.session), account.api_id, account.api_hash, {connectionRetries:5})
+  const client=new TelegramClient(
+    new StringSession(account.session),
+    account.api_id,
+    account.api_hash,
+    {connectionRetries:5}
+  )
   await client.connect()
   clients[account.id]=client
   return client
@@ -113,7 +121,10 @@ async function refreshAccountStatus(account){
   if(account.floodWaitUntil && account.floodWaitUntil < Date.now()){
     account.floodWaitUntil=null
     account.status="active"
-    await update(ref(db,`accounts/${account.id}`),{status:"active",floodWaitUntil:null})
+    await update(ref(db,`accounts/${account.id}`),{
+      status:"active",
+      floodWaitUntil:null
+    })
   }
 }
 
@@ -169,16 +180,23 @@ autoCheck()
 // ===== Get Available Account =====
 function getAvailableAccount(){
   const now=Date.now()
-  return accounts.find(a=>a.status==="active" && (!a.floodWaitUntil || a.floodWaitUntil<now))
+  return accounts.find(a =>
+    a.status==="active" &&
+    (!a.floodWaitUntil || a.floodWaitUntil<now)
+  )
 }
 
 // ===== Auto Join =====
 async function autoJoin(client, group){
-  try{ await client.getEntity(group) }
-  catch{
+  const clean = normalizeGroup(group)
+
+  try{
+    await client.getEntity(clean)
+  }catch{
     try{
-      const hash = group.includes("t.me/") ? group.split("/").pop() : group
-      await client.invoke(new Api.messages.ImportChatInvite({hash}))
+      await client.invoke(
+        new Api.messages.ImportChatInvite({hash:clean})
+      )
     }catch(e){}
   }
 }
@@ -194,6 +212,45 @@ async function autoJoinAllAccounts(group){
   }
 }
 
+// ===== Get Members =====
+app.post('/members', async (req, res) => {
+  try {
+    let { group, offset = 0, limit = 50 } = req.body
+
+    const acc = getAvailableAccount()
+    if (!acc) return res.json({ error: "No active account" })
+
+    const client = await getClient(acc)
+    const cleanGroup = normalizeGroup(group)
+
+    await autoJoin(client, cleanGroup)
+
+    const entity = await client.getEntity(cleanGroup)
+
+    const participants = await client.getParticipants(entity, {
+      offset,
+      limit
+    })
+
+    const members = participants
+      .filter(p => !p.bot)
+      .map(p => ({
+        user_id: p.id,
+        username: p.username,
+        access_hash: p.access_hash
+      }))
+
+    res.json({
+      members,
+      nextOffset: offset + participants.length,
+      hasMore: participants.length === limit
+    })
+
+  } catch (err) {
+    res.json({ error: err.message })
+  }
+})
+
 // ===== Add Member =====
 app.post('/add-member', async(req,res)=>{
   try{
@@ -205,7 +262,6 @@ app.post('/add-member', async(req,res)=>{
     const client=await getClient(acc)
     await autoJoin(client,targetGroup)
 
-    // normalize username
     const cleanUsername = normalizeUsername(username)
 
     // ===== Check Duplicate =====
@@ -271,7 +327,6 @@ app.post('/add-member', async(req,res)=>{
       }
     }
 
-    // ===== Save ALL History =====
     await push(ref(db,'history'),{
       username:cleanUsername || username,
       user_id,
