@@ -242,22 +242,7 @@ startBtn.onclick = async () => {
   status.innerText = "Finished ✅"
 }
 
-// Updated log function with color support
-function log(msg, user_id = null, color = "white") {
-  const li = document.createElement("li")
-  li.innerHTML = msg
-  li.style.color = color
-  list.appendChild(li)
-  list.scrollTop = list.scrollHeight
 
-  const span = document.createElement("span")
-  span.innerHTML = msg + "<br>"
-  span.style.color = color
-  consoleBox.appendChild(span)
-  consoleBox.scrollTop = consoleBox.scrollHeight
-
-  if (user_id) historySet.add(user_id)
-}
 </script>
 </body>
 </html>
