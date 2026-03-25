@@ -256,72 +256,168 @@ startBtn.onclick = async () => {
   offset=0; total=0; accIndex=0
   list.innerHTML = ""; consoleBox.innerHTML = ""
 
-  // show loading
   loadingBarWrapper.classList.remove("hidden")
 
-  status.innerText = "Joining all accounts to target group..."
-  await autoJoinAllAccounts(target)
+  // ===== Detect Mode =====
+  let isGroupMode = false
+  if(sourceValue.includes("t.me/") && !sourceValue.includes("\n")){
+    isGroupMode = true
+  }
 
-  // ===== Parse textarea =====
-  let userList = sourceValue
-    .split("\n")
-    .map(u => u.trim())
-    .filter(u => u)
+  // ===============================
+  // 🔹 MODE 1: GROUP (EXPORT MEMBERS)
+  // ===============================
+  if(isGroupMode){
 
-  const accounts = await getAccounts()
+    status.innerText = "Joining source group..."
+    await autoJoinAllAccounts(sourceValue)
 
-  for(const u of userList){
-    let userKey = u
+    status.innerText = "Joining target group..."
+    await autoJoinAllAccounts(target)
 
-    // Skip history
-    if(historySet.has(userKey)){
-      log(`⏭️ Skipped ${u} (already in history)`, userKey, "orange")
-      total++; counter.innerText = total
-      progress.style.width = (total % 100)+"%"
-      continue
-    }
+    while(true){
+      status.innerText = "Fetching members..."
 
-    let acc = nextAccount(accounts, accIndex)
-
-    while(!acc){
-      status.innerText = "Waiting for accounts..."
-      await new Promise(r=>setTimeout(r,5000))
-      const accountsUpdated = await getAccounts()
-      acc = nextAccount(accountsUpdated,0)
-    }
-
-    accIndex = acc.index
-
-    status.innerText = `Adding: ${u}...`
-    log(`🔹 Using account ${acc.id} → ${u}`, userKey, "cyan")
-
-    try{
-      const addRes = await fetch("/add-member", {
+      const res = await fetch("/members",{
         method:"POST",
         headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({
-          username: u, // support @username or link
-          targetGroup: target
-        })
+        body:JSON.stringify({ group:sourceValue, offset, limit:50 })
       })
 
-      const result = await addRes.json()
+      const data = await res.json()
+      if(data.error){ alert(data.error); break }
 
-      let color = result.status==="success"?"lime":
-                  result.status==="failed"?"red":"orange"
+      const members = data.members || []
+      if(members.length === 0) break
 
-      log(`${u} → ${result.status} (${acc.id})`, userKey, color)
+      offset = data.nextOffset
 
-      if(result.status==="success"){
-        await new Promise(r=>setTimeout(r,20000))
+      const accounts = await getAccounts()
+
+      for(const m of members){
+        const userKey = m.user_id || m.username
+
+        if(historySet.has(userKey)){
+          log(`⏭️ Skipped ${m.username || m.user_id}`, userKey, "orange")
+          total++; counter.innerText = total
+          continue
+        }
+
+        let acc = nextAccount(accounts, accIndex)
+
+        while(!acc){
+          status.innerText = "Waiting for accounts..."
+          await countdown(5,"Waiting account")
+          const accountsUpdated = await getAccounts()
+          acc = nextAccount(accountsUpdated,0)
+        }
+
+        accIndex = acc.index
+
+        status.innerText = `Adding: ${m.username || m.user_id}`
+        log(`🔹 Using ${acc.id} → ${m.username || m.user_id}`, userKey, "cyan")
+
+        try{
+          const addRes = await fetch("/add-member",{
+            method:"POST",
+            headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({
+              username:m.username,
+              user_id:m.user_id,
+              access_hash:m.access_hash,
+              targetGroup:target
+            })
+          })
+
+          const result = await addRes.json()
+
+          let color = result.status==="success"?"lime":
+                      result.status==="failed"?"red":"orange"
+
+          log(`${m.username || m.user_id} → ${result.status}`, userKey, color)
+
+          if(result.status==="success"){
+            await countdown(20,"Delay")
+          }
+
+          total++
+          counter.innerText = total
+          progress.style.width = (total % 100)+"%"
+
+        }catch(err){
+          log(`❌ Error: ${err.message}`, userKey, "red")
+        }
+      }
+    }
+
+  }
+
+  // ===============================
+  // 🔹 MODE 2: TEXTAREA (@USERNAME)
+  // ===============================
+  else{
+
+    status.innerText = "Joining target group..."
+    await autoJoinAllAccounts(target)
+
+    let userList = sourceValue
+      .split("\n")
+      .map(u => u.trim())
+      .filter(u => u)
+
+    const accounts = await getAccounts()
+
+    for(const u of userList){
+      let userKey = u
+
+      if(historySet.has(userKey)){
+        log(`⏭️ Skipped ${u}`, userKey, "orange")
+        total++; counter.innerText = total
+        continue
       }
 
-      total++
-      counter.innerText = total
-      progress.style.width = (total % 100)+"%"
+      let acc = nextAccount(accounts, accIndex)
 
-    }catch(err){
-      log(`❌ Error adding ${u}: ${err.message}`, userKey, "red")
+      while(!acc){
+        status.innerText = "Waiting for accounts..."
+        await countdown(5,"Waiting account")
+        const accountsUpdated = await getAccounts()
+        acc = nextAccount(accountsUpdated,0)
+      }
+
+      accIndex = acc.index
+
+      status.innerText = `Adding: ${u}`
+      log(`🔹 Using ${acc.id} → ${u}`, userKey, "cyan")
+
+      try{
+        const addRes = await fetch("/add-member", {
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({
+            username:u,
+            targetGroup:target
+          })
+        })
+
+        const result = await addRes.json()
+
+        let color = result.status==="success"?"lime":
+                    result.status==="failed"?"red":"orange"
+
+        log(`${u} → ${result.status}`, userKey, color)
+
+        if(result.status==="success"){
+          await countdown(20,"Delay")
+        }
+
+        total++
+        counter.innerText = total
+        progress.style.width = (total % 100)+"%"
+
+      }catch(err){
+        log(`❌ Error: ${err.message}`, userKey, "red")
+      }
     }
   }
 
