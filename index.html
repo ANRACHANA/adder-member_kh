@@ -5,13 +5,14 @@
 <title>Telegram Auto-Add PRO MAX 🚀</title>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono&display=swap" rel="stylesheet">
+
 <style>
 *{box-sizing:border-box;}
 body{font-family:'JetBrains Mono',monospace;background:#0f0f10;color:#fff;margin:0;}
 .container{max-width:1000px;margin:auto;padding:15px;}
 section{background:#1e1e2a;border-radius:20px;padding:20px;margin-bottom:20px;}
 .card-title{font-size:22px;font-weight:700;color:#00ff7f;text-align:center;margin-bottom:10px;}
-input,select{width:100%;padding:10px;margin-top:10px;border-radius:10px;background:#111;color:#fff;border:none;}
+input{width:100%;padding:10px;margin-top:10px;border-radius:10px;background:#111;color:#fff;border:none;}
 button{width:100%;padding:12px;margin-top:10px;border:none;border-radius:10px;font-weight:700;cursor:pointer;}
 button:hover{opacity:0.85;}
 .success{color:#00ff7f;}
@@ -22,54 +23,58 @@ ul{list-style:none;padding:0;max-height:300px;overflow-y:auto;}
 .console{background:#111;padding:10px;border-radius:10px;height:150px;overflow:auto;font-size:12px;}
 .progress-bar{background:#111;height:10px;border-radius:10px;margin-top:10px;}
 .progress{background:#00ff7f;height:10px;width:0%;border-radius:10px;}
-table{width:100%;border-collapse:collapse;margin-top:10px;}
-th,td{padding:5px;border:1px solid #222;text-align:left;}
 .bar-buttons{display:flex;gap:10px;margin-bottom:15px;}
-.bar-buttons button{flex:1;border-radius:10px;}
-#btnAutoAdd{background:#00ff7f;}
-#btnHistory{background:#00ccff;}
+.bar-buttons button{flex:1;border-radius:10px;background:#222;color:#fff;}
+.activeBtn{background:#00ff7f !important;color:#000;}
+table{width:100%;border-collapse:collapse;margin-top:10px;}
+th,td{padding:6px;border:1px solid #222;text-align:left;}
+.page{display:none;}
+#autoPage{display:block;}
 </style>
 </head>
+
 <body>
 <div class="container">
 
-<!-- Top Bar Buttons -->
+<!-- TOP NAV -->
 <div class="bar-buttons">
-  <button id="btnAutoAdd">Auto Add</button>
-  <button id="btnHistory">History / Summary</button>
+  <button id="btnAutoAdd" class="activeBtn">Auto Add</button>
+  <button id="btnHistory">History</button>
 </div>
 
-<!-- Auto Add Section -->
-<section>
-<div class="card-title">Auto Add Members</div>
-<input id="source" placeholder="Source Group">
-<input id="target" placeholder="Target Group">
-<button id="start">START AUTO ADD</button>
-<div id="status"></div>
-<div id="counter">0</div>
-<div class="progress-bar"><div id="progress" class="progress"></div></div>
-<ul id="list"></ul>
-<div class="console" id="console"></div>
+<!-- ================= AUTO ADD PAGE ================= -->
+<section id="autoPage" class="page">
+  <div class="card-title">Auto Add Members</div>
+  <input id="source" placeholder="Source Group (@username or link)">
+  <input id="target" placeholder="Target Group (@username or link)">
+  <button id="start">START AUTO ADD</button>
+  <div id="status"></div>
+  <div id="counter">0</div>
+  <div id="liveStats"></div>
+  <div class="progress-bar"><div id="progress" class="progress"></div></div>
+  <ul id="list"></ul>
+  <div class="console" id="console"></div>
 </section>
 
-<!-- History & Dashboard Section -->
-<section>
-<div class="card-title">History & Dashboard</div>
-<div class="dashboard" id="accountSummary"></div>
-<table id="historyTable">
-  <thead>
-    <tr>
-      <th>Username</th>
-      <th>Status</th>
-      <th>Reason</th>
-      <th>Account (Phone)</th>
-      <th>Time</th>
-    </tr>
-  </thead>
-  <tbody id="historyBody"></tbody>
-</table>
-<button id="refreshHistory">Refresh History</button>
+<!-- ================= HISTORY PAGE ================= -->
+<section id="historyPage" class="page">
+  <div class="card-title">History & Dashboard</div>
+  <div id="accountSummary"></div>
+  <table>
+    <thead>
+      <tr>
+        <th>User</th>
+        <th>Status</th>
+        <th>Account</th>
+        <th>Time</th>
+      </tr>
+    </thead>
+    <tbody id="historyBody"></tbody>
+  </table>
+  <button id="refreshHistory">Refresh</button>
 </section>
+
+</div>
 
 <script>
 const startBtn=document.getElementById("start")
@@ -79,68 +84,82 @@ const progress=document.getElementById("progress")
 const list=document.getElementById("list")
 const consoleBox=document.getElementById("console")
 const historyBody=document.getElementById("historyBody")
-const refreshHistoryBtn=document.getElementById("refreshHistory")
 const accountSummaryDiv=document.getElementById("accountSummary")
+
+const autoPage=document.getElementById("autoPage")
+const historyPage=document.getElementById("historyPage")
 const btnAutoAdd=document.getElementById("btnAutoAdd")
 const btnHistory=document.getElementById("btnHistory")
-const autoAddSection=document.querySelector("section:nth-of-type(1)")
-const historySection=document.querySelector("section:nth-of-type(2)")
 
-btnAutoAdd.onclick=()=>{ autoAddSection.scrollIntoView({behavior:"smooth"}) }
-btnHistory.onclick=()=>{ historySection.scrollIntoView({behavior:"smooth"}) }
-
-let offset=0,total=0,accIndex=0
+let total=0, offset=0, accIndex=0
 let historySet=new Set()
+let success=0, failed=0, skipped=0
 
 function log(msg){
   consoleBox.innerHTML+=msg+"<br>"
   consoleBox.scrollTop=consoleBox.scrollHeight
 }
 
-// Load history and dashboard
+function updateStats(type){
+  if(type==="success") success++
+  else if(type==="failed") failed++
+  else skipped++
+  document.getElementById("liveStats").innerText = `✅ ${success} | ❌ ${failed} | ⏭️ ${skipped}`
+}
+
+function setActive(btn){
+  btnAutoAdd.classList.remove("activeBtn")
+  btnHistory.classList.remove("activeBtn")
+  btn.classList.add("activeBtn")
+}
+
+btnAutoAdd.onclick=()=>{
+  autoPage.style.display="block"
+  historyPage.style.display="none"
+  setActive(btnAutoAdd)
+}
+
+btnHistory.onclick=()=>{
+  autoPage.style.display="none"
+  historyPage.style.display="block"
+  setActive(btnHistory)
+  loadHistory()
+}
+
 async function loadHistory(){
-  const res = await fetch("/history")
-  const data = await res.json()
+  const res=await fetch("/history")
+  const data=await res.json()
   historyBody.innerHTML=""
   historySet.clear()
-  const accountStats={}
+  const stats={}
   Object.values(data).forEach(h=>{
-    historySet.add(h.user_id||h.username)
+    const uid=h.user_id||h.username
+    historySet.add(uid)
     const tr=document.createElement("tr")
-    tr.innerHTML=`
-      <td>${h.username||h.user_id}</td>
-      <td class="${h.status==="success"?"success":(h.status==="failed"?"failed":"skipped")}">${h.status}</td>
-      <td>${h.reason}</td>
-      <td>${h.accountUsed||"-"}</td>
-      <td>${new Date(h.timestamp).toLocaleString()}</td>
-    `
+    tr.innerHTML=`<td>${uid}</td><td class="${h.status}">${h.status}</td><td>${h.accountUsed||"-"}</td><td>${new Date(h.timestamp).toLocaleString()}</td>`
     historyBody.appendChild(tr)
     const acc=h.accountUsed||"-"
-    if(!accountStats[acc]) accountStats[acc]={success:0,failed:0,skipped:0}
-    if(h.status==="success") accountStats[acc].success++
-    else if(h.status==="failed") accountStats[acc].failed++
-    else if(h.status==="skipped") accountStats[acc].skipped++
+    if(!stats[acc]) stats[acc]={s:0,f:0,sk:0}
+    if(h.status==="success") stats[acc].s++
+    else if(h.status==="failed") stats[acc].f++
+    else stats[acc].sk++
   })
   accountSummaryDiv.innerHTML=""
-  Object.keys(accountStats).forEach(acc=>{
+  Object.keys(stats).forEach(acc=>{
+    const d=stats[acc]
     const div=document.createElement("div")
-    const s=accountStats[acc].success
-    const f=accountStats[acc].failed
-    const sk=accountStats[acc].skipped
-    div.innerHTML=`${acc}: ✅${s} | ❌${f} | ⏭️${sk}`
+    div.innerHTML=`${acc} → ✅${d.s} ❌${d.f} ⏭️${d.sk}`
     accountSummaryDiv.appendChild(div)
   })
 }
-refreshHistoryBtn.onclick=loadHistory
-loadHistory()
 
 async function getAccounts(){ const res=await fetch("/account-status"); return await res.json() }
 
-function nextAccount(data, startIndex){
-  const now = Date.now()
-  const keys = Object.keys(data)
+function nextAccount(data,start){
+  const now=Date.now()
+  const keys=Object.keys(data)
   for(let i=0;i<keys.length;i++){
-    let idx=(startIndex+i)%keys.length
+    let idx=(start+i)%keys.length
     let acc=data[keys[idx]]
     if(acc.status==="active" && (!acc.floodWaitUntil || acc.floodWaitUntil<now)){
       return {id:keys[idx], index:idx}
@@ -149,83 +168,67 @@ function nextAccount(data, startIndex){
   return null
 }
 
-// ===== Auto Join All Accounts =====
-async function autoJoinAllAccounts(group){
-  const accounts = await getAccounts()
+async function autoJoinAll(group){
+  const accounts=await getAccounts()
   for(const key of Object.keys(accounts)){
-    const acc = accounts[key]
+    const acc=accounts[key]
     if(acc.status!=="active") continue
     try{
-      await fetch("/auto-join", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({group, account:acc.id})})
-      log(`✅ ${acc.id} joined group`)
-      await new Promise(r=>setTimeout(r,500)) // small delay
-    }catch(e){
-      log(`❌ ${acc.id} join failed: ${e.message}`)
-    }
+      await fetch("/auto-join",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({group,account:key})})
+      log(`✅ ${key} joined`)
+      await new Promise(r=>setTimeout(r,500))
+    }catch{ log(`❌ ${key} join fail`) }
   }
 }
 
-// ===== Start Auto Add =====
-startBtn.onclick = async () => {
-  const source = document.getElementById("source").value.trim()
-  const target = document.getElementById("target").value.trim()
+startBtn.onclick=async()=>{
+  const source=document.getElementById("source").value.trim()
+  const target=document.getElementById("target").value.trim()
   if(!source||!target) return alert("Enter group")
-
-  offset=0; total=0; accIndex=0
+  startBtn.disabled=true
+  total=0; offset=0; accIndex=0; success=0; failed=0; skipped=0
   list.innerHTML=""; consoleBox.innerHTML=""
-
-  status.innerText="Joining all accounts to source group..."
-  await autoJoinAllAccounts(source)
-  status.innerText="Joining all accounts to target group..."
-  await autoJoinAllAccounts(target)
-
+  await loadHistory()
+  status.innerText="Joining groups..."
+  await autoJoinAll(source)
+  await autoJoinAll(target)
+  let accounts=await getAccounts()
   while(true){
-    status.innerText = "Fetching 50 members..."
-    const res = await fetch("/members",{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({group:source, offset, limit:50})
-    })
-    const data = await res.json()
-    if(data.error){ alert(data.error); break }
-    const members = data.members||[]
+    const res=await fetch("/members",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({group:source,offset,limit:50})})
+    const data=await res.json()
+    const members=data.members||[]
     if(members.length===0) break
-    offset = data.nextOffset
-    const accounts = await getAccounts()
-
+    offset=data.nextOffset
     for(const m of members){
-      if(historySet.has(m.user_id||m.username)){
-        log(`⏭️ Skipped ${m.username||m.user_id}`)
+      const uid=m.user_id||m.username
+      if(historySet.has(uid)){ updateStats("skipped"); continue }
+      const acc=nextAccount(accounts,accIndex)
+      if(!acc){ log("⏳ waiting account..."); await new Promise(r=>setTimeout(r,5000)); continue }
+      accIndex=acc.index
+      try{
+        const addRes=await fetch("/add-member",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:m.username,user_id:m.user_id,access_hash:m.access_hash,targetGroup:target,account:acc.id})})
+        const result=await addRes.json()
+        if(result.floodWait) accounts[acc.id].floodWaitUntil=Date.now()+result.wait*1000
+        updateStats(result.status)
+        historySet.add(uid)
         const li=document.createElement("li")
-        li.innerHTML=`<img class="avatar" src="${m.avatar}" onerror="this.src='https://via.placeholder.com/40?text=U'"> ${m.username||m.user_id} → <span class="skipped">skipped</span>`
+        li.innerHTML=`<img class="avatar" src="${m.avatar || 'https://via.placeholder.com/40?text=U'}"> ${uid} → <span class="${result.status}">${result.status}</span> (${acc.id})`
         list.appendChild(li)
-        total++; counter.innerText=total; progress.style.width=(total%100)+"%"
-        continue
-      }
-
-      const acc = nextAccount(accounts, accIndex)
-      if(!acc){ await new Promise(r=>setTimeout(r,5000)); continue }
-      accIndex = acc.index
-      log(`Using account ${acc.id} → ${m.username||m.user_id}`)
-
-      const addRes = await fetch("/add-member",{
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({username:m.username,user_id:m.user_id,access_hash:m.access_hash,targetGroup:target})
-      })
-      const result = await addRes.json()
-      if(result.status==="success") await new Promise(r=>setTimeout(r,20000)) // per-user delay
-
-      const li=document.createElement("li")
-      li.innerHTML=`<img class="avatar" src="${m.avatar}" onerror="this.src='https://via.placeholder.com/40?text=U'"> ${m.username||m.user_id} → <span class="${result.status==="success"?"success":(result.status==="failed"?"failed":"skipped")}">${result.status}</span> (${acc.id})`
-      list.appendChild(li)
-      total++; counter.innerText=total; progress.style.width=(total%100)+"%"
+        total++; counter.innerText=total
+        progress.style.width=Math.min((total/500)*100,100)+"%"
+        const delay=result.status==="success"?15000:3000
+        await new Promise(r=>setTimeout(r,delay))
+      }catch{ log("❌ error add") }
     }
   }
-
-  status.innerText="Finished ✅"
+  status.innerText="DONE ✅"
+  startBtn.disabled=false
   loadHistory()
 }
+
+document.getElementById("refreshHistory").onclick=loadHistory
+loadHistory()
 </script>
+
 </body>
 </html>
