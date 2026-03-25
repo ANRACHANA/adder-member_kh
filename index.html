@@ -181,53 +181,82 @@ async function autoJoinAllAccounts(group){
   }
 }
 
-startBtn.onclick=async()=>{
-  const source=document.getElementById("source").value.trim()
-  const target=document.getElementById("target").value.trim()
-  if(!source||!target) return alert("Enter group")
+startBtn.onclick = async () => {
+  const source = document.getElementById("source").value.trim()
+  const target = document.getElementById("target").value.trim()
+  if (!source || !target) return alert("Enter group")
 
   await loadHistory() // preload history
 
-  offset=0; total=0; accIndex=0
-  list.innerHTML=""; consoleBox.innerHTML=""
-  status.innerText="Joining all accounts to source group..."
+  offset = 0; total = 0; accIndex = 0
+  list.innerHTML = ""; consoleBox.innerHTML = ""
+  status.innerText = "Joining all accounts to source group..."
   await autoJoinAllAccounts(source)
-  status.innerText="Joining all accounts to target group..."
+  status.innerText = "Joining all accounts to target group..."
   await autoJoinAllAccounts(target)
 
-  while(true){
-    status.innerText="Fetching 50 members..."
-    const res=await fetch("/members",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({group:source,offset,limit:50})})
-    const data=await res.json()
-    if(data.error){ alert(data.error); break }
-    const members=data.members||[]
-    if(members.length===0) break
-    offset=data.nextOffset
-    const accounts=await getAccounts()
+  while (true) {
+    status.innerText = "Fetching 50 members..."
+    const res = await fetch("/members", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ group: source, offset, limit: 50 })
+    })
+    const data = await res.json()
+    if (data.error) { alert(data.error); break }
+    const members = data.members || []
+    if (members.length === 0) break
+    offset = data.nextOffset
+    const accounts = await getAccounts()
 
-    for(const m of members){
+    for (const m of members) {
+      let userKey = m.user_id || m.username
+
       // skip already in history, no delay
-      if(historySet.has(m.user_id||m.username)){
-        log(`⏭️ Skipped ${m.username||m.user_id} (already in history)`, m.user_id)
-        total++; counter.innerText=total; progress.style.width=(total%100)+"%"
+      if (historySet.has(userKey)) {
+        log(`⏭️ Skipped ${m.username || m.user_id} (already in history)`, userKey, "orange")
+        total++; counter.innerText = total; progress.style.width = (total % 100) + "%"
         continue
       }
 
-      const acc=nextAccount(accounts,accIndex)
-      if(!acc){ await new Promise(r=>setTimeout(r,5000)); continue }
-      accIndex=acc.index
-      log(`Using account ${acc.id} → ${m.username||m.user_id}`, m.user_id)
+      const acc = nextAccount(accounts, accIndex)
+      if (!acc) { await new Promise(r => setTimeout(r, 5000)); continue }
+      accIndex = acc.index
+      log(`🔹 Using account ${acc.id} → ${m.username || m.user_id}`, userKey, "cyan")
 
-      const addRes=await fetch("/add-member",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:m.username,user_id:m.user_id,access_hash:m.access_hash,targetGroup:target})})
-      const result=await addRes.json()
+      const addRes = await fetch("/add-member", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username: m.username, user_id: m.user_id, access_hash: m.access_hash, targetGroup: target })
+      })
+      const result = await addRes.json()
 
-      if(result.status==="success") await new Promise(r=>setTimeout(r,20000))
+      if (result.status === "success") await new Promise(r => setTimeout(r, 20000))
 
-      log(`${m.username||m.user_id} → ${result.status} (${acc.id})`, m.user_id)
-      total++; counter.innerText=total; progress.style.width=(total%100)+"%"
+      let color = result.status === "success" ? "lime" :
+                  result.status === "failed" ? "red" : "orange"
+      log(`${m.username || m.user_id} → ${result.status} (${acc.id})`, userKey, color)
+      total++; counter.innerText = total; progress.style.width = (total % 100) + "%"
     }
   }
-  status.innerText="Finished ✅"
+  status.innerText = "Finished ✅"
+}
+
+// Updated log function with color support
+function log(msg, user_id = null, color = "white") {
+  const li = document.createElement("li")
+  li.innerHTML = msg
+  li.style.color = color
+  list.appendChild(li)
+  list.scrollTop = list.scrollHeight
+
+  const span = document.createElement("span")
+  span.innerHTML = msg + "<br>"
+  span.style.color = color
+  consoleBox.appendChild(span)
+  consoleBox.scrollTop = consoleBox.scrollHeight
+
+  if (user_id) historySet.add(user_id)
 }
 </script>
 </body>
