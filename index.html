@@ -22,7 +22,7 @@ ul{list-style:none;padding:0;max-height:300px;overflow-y:auto;background:#111;bo
 .console{background:#111;padding:10px;border-radius:10px;height:150px;overflow:auto;font-size:12px;margin-top:10px;}
 .progress-bar{background:#111;height:10px;border-radius:10px;margin-top:10px;}
 .progress{background:#00ff7f;height:10px;width:0%;border-radius:10px;}
-table{width:100%;border-collapse:collapse;margin-top:10px;background:#111;border-radius:10px;}
+table{width:100%;border-collapse:collapse;margin-top:10px;background:#111;border-radius:10px;display:block;overflow-x:auto;}
 th,td{padding:5px;border:1px solid #222;text-align:left;}
 th{background:#222;}
 .bar-buttons{display:flex;gap:10px;margin-bottom:15px;}
@@ -32,6 +32,47 @@ th{background:#222;}
 .hidden{display:none;}
 tbody{display:block;max-height:300px;overflow-y:auto;}
 thead, tbody tr{display:table;width:100%;table-layout:fixed;}
+
+/* ===== Mobile Responsive ===== */
+@media screen and (max-width: 768px) {
+  .container {padding:10px;}
+  input, select, button {font-size:14px;padding:8px;}
+  .card-title {font-size:18px;}
+  .bar-buttons {flex-direction:column; gap:8px;}
+  table, thead, tbody, th, td, tr {display:block;}
+  thead tr {display:none;}
+  tbody tr {margin-bottom:10px;border:1px solid #222;border-radius:10px;padding:5px;background:#111;}
+  tbody td {display:flex;justify-content:space-between;padding:5px;border:none;font-size:13px;}
+  ul {max-height:200px;font-size:13px;}
+  .console {height:120px;font-size:12px;}
+  .progress-bar {height:8px;}
+  .progress {height:8px;}
+}
+  #loadingBarWrapper {
+  width: 100%;
+  height: 8px;
+  background: #111;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-top: 10px;
+  position: relative;
+}
+
+#loadingBar {
+  width: 30%;
+  height: 100%;
+  background: #00ff7f;
+  border-radius: 10px;
+  position: absolute;
+  left: -30%;
+  animation: loadingMove 1.5s linear infinite;
+}
+
+@keyframes loadingMove {
+  0% { left: -30%; }
+  50% { left: 100%; }
+  100% { left: -30%; }
+}
 </style>
 </head>
 <body>
@@ -48,6 +89,9 @@ thead, tbody tr{display:table;width:100%;table-layout:fixed;}
 <input id="source" placeholder="Source Group">
 <input id="target" placeholder="Target Group">
 <button id="start">START AUTO ADD</button>
+  <div id="loadingBarWrapper" class="hidden">
+  <div id="loadingBar"></div>
+</div>
 <div id="status"></div>
 <div id="counter">0</div>
 <div class="progress-bar"><div id="progress" class="progress"></div></div>
@@ -146,9 +190,10 @@ const list=document.getElementById("list")
 const consoleBox=document.getElementById("console")
 let offset=0,total=0,accIndex=0
 
-function log(msg,user_id=null){
+function log(msg,user_id=null,color=null){
     const li=document.createElement("li")
     li.innerHTML=msg
+    if(color) li.style.color=color
     list.appendChild(li)
     list.scrollTop=list.scrollHeight
     consoleBox.innerHTML+=msg+"<br>"
@@ -181,68 +226,81 @@ async function autoJoinAllAccounts(group){
   }
 }
 
+const loadingBarWrapper = document.getElementById("loadingBarWrapper")
+
 startBtn.onclick = async () => {
   const source = document.getElementById("source").value.trim()
   const target = document.getElementById("target").value.trim()
-  if (!source || !target) return alert("Enter group")
+  if(!source || !target) return alert("Enter group")
 
-  await loadHistory() // preload history
+  await loadHistory()
 
-  offset = 0; total = 0; accIndex = 0
+  offset=0; total=0; accIndex=0
   list.innerHTML = ""; consoleBox.innerHTML = ""
+  
+  // show loading bar
+  loadingBarWrapper.classList.remove("hidden")
   status.innerText = "Joining all accounts to source group..."
   await autoJoinAllAccounts(source)
   status.innerText = "Joining all accounts to target group..."
   await autoJoinAllAccounts(target)
 
-  while (true) {
+  while(true){
     status.innerText = "Fetching 50 members..."
-    const res = await fetch("/members", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ group: source, offset, limit: 50 })
-    })
+    const res = await fetch("/members",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({group:source,offset,limit:50})})
     const data = await res.json()
-    if (data.error) { alert(data.error); break }
-    const members = data.members || []
-    if (members.length === 0) break
-    offset = data.nextOffset
+    if(data.error){ alert(data.error); break }
+    const members = data.members||[]
+    if(members.length===0) break
+    offset = data.nextOffset||0
     const accounts = await getAccounts()
 
-    for (const m of members) {
-      let userKey = m.user_id || m.username
-
-      // skip already in history, no delay
-      if (historySet.has(userKey)) {
+    for(const m of members){
+      const userKey = m.user_id || m.username
+      if(historySet.has(userKey)){
         log(`⏭️ Skipped ${m.username || m.user_id} (already in history)`, userKey, "orange")
-        total++; counter.innerText = total; progress.style.width = (total % 100) + "%"
+        total++; counter.innerText = total
+        progress.style.width = Math.min((total/(data.totalMembers||100))*100,100)+"%"
         continue
       }
 
-      const acc = nextAccount(accounts, accIndex)
-      if (!acc) { await new Promise(r => setTimeout(r, 5000)); continue }
+      let acc = nextAccount(accounts, accIndex)
+      while(!acc){
+        status.innerText = "Waiting for accounts to become available..."
+        await new Promise(r=>setTimeout(r,5000))
+        const accountsUpdated = await getAccounts()
+        acc = nextAccount(accountsUpdated,0)
+      }
       accIndex = acc.index
       log(`🔹 Using account ${acc.id} → ${m.username || m.user_id}`, userKey, "cyan")
 
-      const addRes = await fetch("/add-member", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: m.username, user_id: m.user_id, access_hash: m.access_hash, targetGroup: target })
-      })
-      const result = await addRes.json()
+      // show status
+      status.innerText = `Adding member: ${m.username || m.user_id}...`
 
-      if (result.status === "success") await new Promise(r => setTimeout(r, 20000))
-
-      let color = result.status === "success" ? "lime" :
-                  result.status === "failed" ? "red" : "orange"
-      log(`${m.username || m.user_id} → ${result.status} (${acc.id})`, userKey, color)
-      total++; counter.innerText = total; progress.style.width = (total % 100) + "%"
+      try{
+        const addRes = await fetch("/add-member", {
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({ username:m.username, user_id:m.user_id, access_hash:m.access_hash, targetGroup:target })
+        })
+        const result = await addRes.json()
+        let color = result.status==="success"?"lime":result.status==="failed"?"red":"orange"
+        log(`${m.username || m.user_id} → ${result.status} (${acc.id})`, userKey, color)
+        if(result.status==="success") await new Promise(r=>setTimeout(r,20000))
+        total++
+        counter.innerText = total
+        progress.style.width = Math.min((total/(data.totalMembers||100))*100,100)+"%"
+      }catch(err){
+        log(`❌ Error adding ${m.username || m.user_id}: ${err.message}`, userKey, "red")
+      }
     }
   }
+
+  // hide loading bar
+  loadingBarWrapper.classList.add("hidden")
   status.innerText = "Finished ✅"
 }
-
-
 </script>
+</div>
 </body>
 </html>
