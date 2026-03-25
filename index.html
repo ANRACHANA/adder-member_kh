@@ -85,18 +85,36 @@ thead, tbody tr{display:table;width:100%;table-layout:fixed;}
 
 <!-- ===== Auto Add ===== -->
 <section id="autoAddPage">
-<div class="card-title">Auto Add Members</div>
-<input id="source" placeholder="Source Group">
-<input id="target" placeholder="Target Group">
-<button id="start">START AUTO ADD</button>
+  <div class="card-title">Auto Add Members</div>
+
+  <!-- Multi-line textarea for usernames / links -->
+  <textarea id="source" placeholder="Enter multiple @usernames or Telegram links, one per line"
+            style="width:100%; height:100px; padding:10px; border-radius:10px; background:#111; color:#fff; border:none; resize:vertical; margin-bottom:10px;"></textarea>
+
+  <input id="target" placeholder="Target Group" 
+         style="width:100%; padding:10px; border-radius:10px; background:#111; color:#fff; border:none; margin-bottom:10px;">
+
+  <button id="start" style="width:100%; padding:12px; border:none; border-radius:10px; font-weight:700; cursor:pointer; background:#00ff7f; margin-bottom:10px;">
+    START AUTO ADD
+  </button>
+
+  <!-- Loading Bar -->
   <div id="loadingBarWrapper" class="hidden">
-  <div id="loadingBar"></div>
-</div>
-<div id="status"></div>
-<div id="counter">0</div>
-<div class="progress-bar"><div id="progress" class="progress"></div></div>
-<ul id="list"></ul>
-<div class="console" id="console"></div>
+    <div id="loadingBar"></div>
+  </div>
+
+  <!-- Status & Counter -->
+  <div id="status">Ready</div>
+  <div id="counter">0</div>
+
+  <!-- Progress Bar -->
+  <div class="progress-bar">
+    <div id="progress" class="progress"></div>
+  </div>
+
+  <!-- Members Log & Console -->
+  <ul id="list"></ul>
+  <div class="console" id="console"></div>
 </section>
 
 <!-- ===== History & Accounts ===== -->
@@ -229,74 +247,84 @@ async function autoJoinAllAccounts(group){
 const loadingBarWrapper = document.getElementById("loadingBarWrapper")
 
 startBtn.onclick = async () => {
-  const source = document.getElementById("source").value.trim()
+  const sourceValue = document.getElementById("source").value.trim()
   const target = document.getElementById("target").value.trim()
-  if(!source || !target) return alert("Enter group")
+  if(!sourceValue || !target) return alert("Enter usernames / links and target group")
 
   await loadHistory()
 
   offset=0; total=0; accIndex=0
   list.innerHTML = ""; consoleBox.innerHTML = ""
-  
-  // show loading bar
+
+  // show loading
   loadingBarWrapper.classList.remove("hidden")
-  status.innerText = "Joining all accounts to source group..."
-  await autoJoinAllAccounts(source)
+
   status.innerText = "Joining all accounts to target group..."
   await autoJoinAllAccounts(target)
 
-  while(true){
-    status.innerText = "Fetching 50 members..."
-    const res = await fetch("/members",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({group:source,offset,limit:50})})
-    const data = await res.json()
-    if(data.error){ alert(data.error); break }
-    const members = data.members||[]
-    if(members.length===0) break
-    offset = data.nextOffset||0
-    const accounts = await getAccounts()
+  // ===== Parse textarea =====
+  let userList = sourceValue
+    .split("\n")
+    .map(u => u.trim())
+    .filter(u => u)
 
-    for(const m of members){
-      const userKey = m.user_id || m.username
-      if(historySet.has(userKey)){
-        log(`⏭️ Skipped ${m.username || m.user_id} (already in history)`, userKey, "orange")
-        total++; counter.innerText = total
-        progress.style.width = Math.min((total/(data.totalMembers||100))*100,100)+"%"
-        continue
-      }
+  const accounts = await getAccounts()
 
-      let acc = nextAccount(accounts, accIndex)
-      while(!acc){
-        status.innerText = "Waiting for accounts to become available..."
-        await new Promise(r=>setTimeout(r,5000))
-        const accountsUpdated = await getAccounts()
-        acc = nextAccount(accountsUpdated,0)
-      }
-      accIndex = acc.index
-      log(`🔹 Using account ${acc.id} → ${m.username || m.user_id}`, userKey, "cyan")
+  for(const u of userList){
+    let userKey = u
 
-      // show status
-      status.innerText = `Adding member: ${m.username || m.user_id}...`
+    // Skip history
+    if(historySet.has(userKey)){
+      log(`⏭️ Skipped ${u} (already in history)`, userKey, "orange")
+      total++; counter.innerText = total
+      progress.style.width = (total % 100)+"%"
+      continue
+    }
 
-      try{
-        const addRes = await fetch("/add-member", {
-          method:"POST",
-          headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({ username:m.username, user_id:m.user_id, access_hash:m.access_hash, targetGroup:target })
+    let acc = nextAccount(accounts, accIndex)
+
+    while(!acc){
+      status.innerText = "Waiting for accounts..."
+      await new Promise(r=>setTimeout(r,5000))
+      const accountsUpdated = await getAccounts()
+      acc = nextAccount(accountsUpdated,0)
+    }
+
+    accIndex = acc.index
+
+    status.innerText = `Adding: ${u}...`
+    log(`🔹 Using account ${acc.id} → ${u}`, userKey, "cyan")
+
+    try{
+      const addRes = await fetch("/add-member", {
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          username: u, // support @username or link
+          targetGroup: target
         })
-        const result = await addRes.json()
-        let color = result.status==="success"?"lime":result.status==="failed"?"red":"orange"
-        log(`${m.username || m.user_id} → ${result.status} (${acc.id})`, userKey, color)
-        if(result.status==="success") await new Promise(r=>setTimeout(r,20000))
-        total++
-        counter.innerText = total
-        progress.style.width = Math.min((total/(data.totalMembers||100))*100,100)+"%"
-      }catch(err){
-        log(`❌ Error adding ${m.username || m.user_id}: ${err.message}`, userKey, "red")
+      })
+
+      const result = await addRes.json()
+
+      let color = result.status==="success"?"lime":
+                  result.status==="failed"?"red":"orange"
+
+      log(`${u} → ${result.status} (${acc.id})`, userKey, color)
+
+      if(result.status==="success"){
+        await new Promise(r=>setTimeout(r,20000))
       }
+
+      total++
+      counter.innerText = total
+      progress.style.width = (total % 100)+"%"
+
+    }catch(err){
+      log(`❌ Error adding ${u}: ${err.message}`, userKey, "red")
     }
   }
 
-  // hide loading bar
   loadingBarWrapper.classList.add("hidden")
   status.innerText = "Finished ✅"
 }
