@@ -26,23 +26,22 @@ table{width:100%;border-collapse:collapse;margin-top:10px;}
 th,td{padding:5px;border:1px solid #222;text-align:left;}
 .bar-buttons{display:flex;gap:10px;margin-bottom:15px;}
 .bar-buttons button{flex:1;border-radius:10px;}
-#btnAutoAdd{background:#00ff7f;}
-#btnHistory{background:#00ccff;}
-#btnAccounts{background:#ffcc00;}
+#btnAutoAddPage{background:#00ff7f;}
+#btnHistoryPage{background:#00ccff;}
+.hidden{display:none;}
 </style>
 </head>
 <body>
 <div class="container">
 
-<!-- Top Bar Buttons -->
+<!-- Top Navigation -->
 <div class="bar-buttons">
-  <button id="btnAutoAdd">Auto Add</button>
-  <button id="btnHistory">History / Summary</button>
-  <button id="btnAccounts">Accounts Status</button>
+  <button id="btnAutoAddPage">Auto Add Members</button>
+  <button id="btnHistoryPage">History & Accounts</button>
 </div>
 
-<!-- Auto Add Section -->
-<section id="sectionAutoAdd">
+<!-- ===== Page 1: Auto Add ===== -->
+<section id="autoAddPage">
 <div class="card-title">Auto Add Members</div>
 <input id="source" placeholder="Source Group">
 <input id="target" placeholder="Target Group">
@@ -54,35 +53,32 @@ th,td{padding:5px;border:1px solid #222;text-align:left;}
 <div class="console" id="console"></div>
 </section>
 
-<!-- History Section -->
-<section id="sectionHistory">
-<div class="card-title">History & Dashboard</div>
-<div class="dashboard" id="accountSummary"></div>
+<!-- ===== Page 2: History & Accounts ===== -->
+<section id="historyPage" class="hidden">
+<div class="card-title">History</div>
 <table id="historyTable">
   <thead>
     <tr>
       <th>Username</th>
       <th>Status</th>
       <th>Reason</th>
-      <th>Account (Phone)</th>
+      <th>Account</th>
       <th>Time</th>
     </tr>
   </thead>
   <tbody id="historyBody"></tbody>
 </table>
 <button id="refreshHistory">Refresh History</button>
-</section>
 
-<!-- Accounts Status Section -->
-<section id="sectionAccounts">
 <div class="card-title">Accounts Status</div>
 <table id="accountTable">
   <thead>
     <tr>
-      <th>Phone / ID</th>
+      <th>Phone</th>
       <th>Status</th>
       <th>FloodWait Until</th>
       <th>Last Checked</th>
+      <th>Add Count</th>
     </tr>
   </thead>
   <tbody id="accountBody"></tbody>
@@ -91,186 +87,144 @@ th,td{padding:5px;border:1px solid #222;text-align:left;}
 </section>
 
 <script>
+const autoAddPage=document.getElementById("autoAddPage")
+const historyPage=document.getElementById("historyPage")
+const btnAutoAddPage=document.getElementById("btnAutoAddPage")
+const btnHistoryPage=document.getElementById("btnHistoryPage")
+
+btnAutoAddPage.onclick=()=>{autoAddPage.classList.remove("hidden");historyPage.classList.add("hidden")}
+btnHistoryPage.onclick=()=>{historyPage.classList.remove("hidden");autoAddPage.classList.add("hidden")}
+
+// ===== History =====
+const historyBody=document.getElementById("historyBody")
+const refreshHistoryBtn=document.getElementById("refreshHistory")
+async function loadHistory(){
+  const res=await fetch("/history")
+  const data=await res.json()
+  historyBody.innerHTML=""
+  Object.values(data).forEach(h=>{
+    const tr=document.createElement("tr")
+    tr.innerHTML=`<td>${h.username||h.user_id}</td>
+      <td class="${h.status==="success"?"success":(h.status==="failed"?"failed":"skipped")}">${h.status}</td>
+      <td>${h.reason}</td>
+      <td>${h.accountUsed||"-"}</td>
+      <td>${new Date(h.timestamp).toLocaleString()}</td>`
+    historyBody.appendChild(tr)
+  })
+}
+refreshHistoryBtn.onclick=loadHistory
+setInterval(loadHistory,5000) // live refresh
+
+// ===== Accounts =====
+const accountBody=document.getElementById("accountBody")
+const refreshAccountsBtn=document.getElementById("refreshAccounts")
+async function loadAccounts(){
+  const res=await fetch("/account-status")
+  const data=await res.json()
+  accountBody.innerHTML=""
+  Object.values(data).forEach(a=>{
+    const tr=document.createElement("tr")
+    tr.innerHTML=`<td>${a.phone}</td>
+      <td class="${a.status==="active"?"success":(a.status==="floodwait"?"skipped":"failed")}">${a.status}</td>
+      <td>${a.floodWaitUntil?a.floodWaitUntil?new Date(a.floodWaitUntil).toLocaleString():"-" : "-"}</td>
+      <td>${a.lastChecked?a.lastChecked?new Date(a.lastChecked).toLocaleString():"-" : "-"}</td>
+      <td>${a.addCount||0}</td>`
+    accountBody.appendChild(tr)
+  })
+}
+refreshAccountsBtn.onclick=loadAccounts
+setInterval(loadAccounts,5000) // live refresh
+
+// ===== Auto Add Members (existing logic) =====
 const startBtn=document.getElementById("start")
 const status=document.getElementById("status")
 const counter=document.getElementById("counter")
 const progress=document.getElementById("progress")
 const list=document.getElementById("list")
 const consoleBox=document.getElementById("console")
-const historyBody=document.getElementById("historyBody")
-const refreshHistoryBtn=document.getElementById("refreshHistory")
-const accountSummaryDiv=document.getElementById("accountSummary")
-const accountBody=document.getElementById("accountBody")
-const refreshAccountsBtn=document.getElementById("refreshAccounts")
-
-const btnAutoAdd=document.getElementById("btnAutoAdd")
-const btnHistory=document.getElementById("btnHistory")
-const btnAccounts=document.getElementById("btnAccounts")
-const sectionAutoAdd=document.getElementById("sectionAutoAdd")
-const sectionHistory=document.getElementById("sectionHistory")
-const sectionAccounts=document.getElementById("sectionAccounts")
-
-btnAutoAdd.onclick=()=>{ sectionAutoAdd.scrollIntoView({behavior:"smooth"}) }
-btnHistory.onclick=()=>{ sectionHistory.scrollIntoView({behavior:"smooth"}) }
-btnAccounts.onclick=()=>{ sectionAccounts.scrollIntoView({behavior:"smooth"}) }
 
 let offset=0,total=0,accIndex=0
 let historySet=new Set()
 
-function log(msg){
-  consoleBox.innerHTML+=msg+"<br>"
-  consoleBox.scrollTop=consoleBox.scrollHeight
+function log(msg,user_id=null){
+    const li=document.createElement("li")
+    li.innerHTML=msg
+    list.appendChild(li)
+    list.scrollTop=list.scrollHeight  // live scroll
+    consoleBox.innerHTML+=msg+"<br>"
+    consoleBox.scrollTop=consoleBox.scrollHeight
+    if(user_id) historySet.add(user_id)
 }
 
-// ===== History & Dashboard =====
-async function loadHistory(){
-  const res = await fetch("/history")
-  const data = await res.json()
-  historyBody.innerHTML=""
-  historySet.clear()
-  const accountStats={}
-  Object.values(data).forEach(h=>{
-    historySet.add(h.user_id||h.username)
-    const tr=document.createElement("tr")
-    tr.innerHTML=`
-      <td>${h.username||h.user_id}</td>
-      <td class="${h.status==="success"?"success":(h.status==="failed"?"failed":"skipped")}">${h.status}</td>
-      <td>${h.reason}</td>
-      <td>${h.accountUsed||"-"}</td>
-      <td>${new Date(h.timestamp).toLocaleString()}</td>
-    `
-    historyBody.appendChild(tr)
-    const acc=h.accountUsed||"-"
-    if(!accountStats[acc]) accountStats[acc]={success:0,failed:0,skipped:0}
-    if(h.status==="success") accountStats[acc].success++
-    else if(h.status==="failed") accountStats[acc].failed++
-    else if(h.status==="skipped") accountStats[acc].skipped++
-  })
-  accountSummaryDiv.innerHTML=""
-  Object.keys(accountStats).forEach(acc=>{
-    const div=document.createElement("div")
-    const s=accountStats[acc].success
-    const f=accountStats[acc].failed
-    const sk=accountStats[acc].skipped
-    div.innerHTML=`${acc}: ✅${s} | ❌${f} | ⏭️${sk}`
-    accountSummaryDiv.appendChild(div)
-  })
-}
-refreshHistoryBtn.onclick=loadHistory
-loadHistory()
-
-// ===== Accounts Table =====
-async function loadAccounts(){
-  const res = await fetch("/account-status")
-  const data = await res.json()
-  accountBody.innerHTML=""
-  Object.values(data).forEach(acc=>{
-    const tr=document.createElement("tr")
-    tr.innerHTML=`
-      <td>${acc.phone||acc.id}</td>
-      <td class="${acc.status==="active"?"success":(acc.status==="floodwait"?"skipped":"failed")}">${acc.status}</td>
-      <td>${acc.floodWaitUntil ? new Date(acc.floodWaitUntil).toLocaleString() : "-"}</td>
-      <td>${acc.lastChecked ? new Date(acc.lastChecked).toLocaleString() : "-"}</td>
-    `
-    accountBody.appendChild(tr)
-  })
-}
-refreshAccountsBtn.onclick=loadAccounts
-loadAccounts()
-setInterval(loadAccounts,30000)
-
-// ===== Get Accounts =====
 async function getAccounts(){ const res=await fetch("/account-status"); return await res.json() }
-function nextAccount(data, startIndex){
-  const now = Date.now()
-  const keys = Object.keys(data)
+
+function nextAccount(data,startIndex){
+  const now=Date.now()
+  const keys=Object.keys(data)
   for(let i=0;i<keys.length;i++){
     let idx=(startIndex+i)%keys.length
     let acc=data[keys[idx]]
-    if(acc.status==="active" && (!acc.floodWaitUntil || acc.floodWaitUntil<now)){
-      return {id:keys[idx], index:idx}
-    }
+    if(acc.status==="active" && (!acc.floodWaitUntil || acc.floodWaitUntil<now)) return {id:keys[idx], index:idx}
   }
   return null
 }
 
 // ===== Auto Join All Accounts =====
 async function autoJoinAllAccounts(group){
-  const accounts = await getAccounts()
+  const accounts=await getAccounts()
   for(const key of Object.keys(accounts)){
-    const acc = accounts[key]
+    const acc=accounts[key]
     if(acc.status!=="active") continue
     try{
-      await fetch("/auto-join", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({group, account:acc.id})})
-      log(`✅ ${acc.id} joined group`)
+      await fetch("/auto-join",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({group,account:acc.id})})
+      log(`✅ ${acc.id} joined ${group}`)
       await new Promise(r=>setTimeout(r,500))
-    }catch(e){
-      log(`❌ ${acc.id} join failed: ${e.message}`)
-    }
+    }catch(e){ log(`❌ ${acc.id} join failed: ${e.message}`) }
   }
 }
 
 // ===== Start Auto Add =====
-startBtn.onclick = async () => {
-  const source = document.getElementById("source").value.trim()
-  const target = document.getElementById("target").value.trim()
+startBtn.onclick=async()=>{
+  const source=document.getElementById("source").value.trim()
+  const target=document.getElementById("target").value.trim()
   if(!source||!target) return alert("Enter group")
-
   offset=0; total=0; accIndex=0
   list.innerHTML=""; consoleBox.innerHTML=""
-
   status.innerText="Joining all accounts to source group..."
   await autoJoinAllAccounts(source)
   status.innerText="Joining all accounts to target group..."
   await autoJoinAllAccounts(target)
 
   while(true){
-    status.innerText = "Fetching 50 members..."
-    const res = await fetch("/members",{
-      method:"POST",
-      headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({group:source, offset, limit:50})
-    })
-    const data = await res.json()
+    status.innerText="Fetching 50 members..."
+    const res=await fetch("/members",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({group:source,offset,limit:50})})
+    const data=await res.json()
     if(data.error){ alert(data.error); break }
-    const members = data.members||[]
+    const members=data.members||[]
     if(members.length===0) break
-    offset = data.nextOffset
-    const accounts = await getAccounts()
+    offset=data.nextOffset
+    const accounts=await getAccounts()
 
     for(const m of members){
       if(historySet.has(m.user_id||m.username)){
-        log(`⏭️ Skipped ${m.username||m.user_id}`)
-        const li=document.createElement("li")
-        li.innerHTML=`<img class="avatar" src="${m.avatar}" onerror="this.src='https://via.placeholder.com/40?text=U'"> ${m.username||m.user_id} → <span class="skipped">skipped</span>`
-        list.appendChild(li)
+        log(`⏭️ Skipped ${m.username||m.user_id}`, m.user_id)
         total++; counter.innerText=total; progress.style.width=(total%100)+"%"
         continue
       }
 
-      const acc = nextAccount(accounts, accIndex)
+      const acc=nextAccount(accounts,accIndex)
       if(!acc){ await new Promise(r=>setTimeout(r,5000)); continue }
-      accIndex = acc.index
-      log(`Using account ${acc.id} → ${m.username||m.user_id}`)
+      accIndex=acc.index
+      log(`Using account ${acc.id} → ${m.username||m.user_id}`, m.user_id)
 
-      const addRes = await fetch("/add-member",{
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body: JSON.stringify({username:m.username,user_id:m.user_id,access_hash:m.access_hash,targetGroup:target})
-      })
-      const result = await addRes.json()
+      const addRes=await fetch("/add-member",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:m.username,user_id:m.user_id,access_hash:m.access_hash,targetGroup:target})})
+      const result=await addRes.json()
       if(result.status==="success") await new Promise(r=>setTimeout(r,20000))
-
-      const li=document.createElement("li")
-      li.innerHTML=`<img class="avatar" src="${m.avatar}" onerror="this.src='https://via.placeholder.com/40?text=U'"> ${m.username||m.user_id} → <span class="${result.status==="success"?"success":(result.status==="failed"?"failed":"skipped")}">${result.status}</span> (${acc.id})`
-      list.appendChild(li)
+      log(`${m.username||m.user_id} → ${result.status} (${acc.id})`, m.user_id)
       total++; counter.innerText=total; progress.style.width=(total%100)+"%"
     }
   }
-
   status.innerText="Finished ✅"
-  loadHistory()
-  loadAccounts()
 }
 </script>
 </body>
