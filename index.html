@@ -18,11 +18,11 @@ button:hover{opacity:0.85;}
 .failed{color:#ff4c4c;font-weight:700;}
 .skipped{color:orange;font-weight:700;}
 .avatar{width:25px;height:25px;border-radius:50%;}
-ul{list-style:none;padding:0;max-height:300px;overflow-y:auto;background:#111;border-radius:10px;}
+ul{list-style:none;padding:0;max-height:300px;overflow-y:auto;background:#111;border-radius:10px;margin-top:10px;}
 .console{background:#111;padding:10px;border-radius:10px;height:150px;overflow:auto;font-size:12px;margin-top:10px;}
 .progress-bar{background:#111;height:10px;border-radius:10px;margin-top:10px;}
 .progress{background:#00ff7f;height:10px;width:0%;border-radius:10px;}
-table{width:100%;border-collapse:collapse;margin-top:10px;background:#111;}
+table{width:100%;border-collapse:collapse;margin-top:10px;background:#111;border-radius:10px;}
 th,td{padding:5px;border:1px solid #222;text-align:left;}
 th{background:#222;}
 .bar-buttons{display:flex;gap:10px;margin-bottom:15px;}
@@ -30,6 +30,8 @@ th{background:#222;}
 #btnAutoAddPage{background:#00ff7f;}
 #btnHistoryPage{background:#00ccff;}
 .hidden{display:none;}
+tbody{display:block;max-height:300px;overflow-y:auto;}
+thead, tbody tr{display:table;width:100%;table-layout:fixed;}
 </style>
 </head>
 <body>
@@ -69,6 +71,7 @@ th{background:#222;}
   <tbody id="accountBody"></tbody>
 </table>
 <button id="refreshAccounts">Refresh Accounts</button>
+
 <div class="card-title">History</div>
 <table id="historyTable">
   <thead>
@@ -83,8 +86,6 @@ th{background:#222;}
   <tbody id="historyBody"></tbody>
 </table>
 <button id="refreshHistory">Refresh History</button>
-
-
 </section>
 
 <script>
@@ -95,10 +96,13 @@ document.getElementById("btnHistoryPage").onclick=()=>{historyPage.classList.rem
 
 // ===== Live History =====
 const historyBody=document.getElementById("historyBody")
+let historySet=new Set()
+
 async function loadHistory(){
   const res=await fetch("/history")
   const data=await res.json()
   historyBody.innerHTML=""
+  historySet.clear()
   Object.values(data).forEach(h=>{
     const tr=document.createElement("tr")
     tr.innerHTML=`<td>${h.username||h.user_id}</td>
@@ -107,6 +111,8 @@ async function loadHistory(){
       <td>${h.accountUsed||"-"}</td>
       <td>${new Date(h.timestamp).toLocaleString()}</td>`
     historyBody.appendChild(tr)
+    if(h.user_id) historySet.add(h.user_id)
+    else if(h.username) historySet.add(h.username)
   })
 }
 document.getElementById("refreshHistory").onclick=loadHistory
@@ -139,7 +145,6 @@ const progress=document.getElementById("progress")
 const list=document.getElementById("list")
 const consoleBox=document.getElementById("console")
 let offset=0,total=0,accIndex=0
-let historySet=new Set()
 
 function log(msg,user_id=null){
     const li=document.createElement("li")
@@ -180,6 +185,9 @@ startBtn.onclick=async()=>{
   const source=document.getElementById("source").value.trim()
   const target=document.getElementById("target").value.trim()
   if(!source||!target) return alert("Enter group")
+
+  await loadHistory() // preload history
+
   offset=0; total=0; accIndex=0
   list.innerHTML=""; consoleBox.innerHTML=""
   status.innerText="Joining all accounts to source group..."
@@ -198,18 +206,23 @@ startBtn.onclick=async()=>{
     const accounts=await getAccounts()
 
     for(const m of members){
+      // skip already in history, no delay
       if(historySet.has(m.user_id||m.username)){
-        log(`⏭️ Skipped ${m.username||m.user_id}`, m.user_id)
+        log(`⏭️ Skipped ${m.username||m.user_id} (already in history)`, m.user_id)
         total++; counter.innerText=total; progress.style.width=(total%100)+"%"
         continue
       }
+
       const acc=nextAccount(accounts,accIndex)
       if(!acc){ await new Promise(r=>setTimeout(r,5000)); continue }
       accIndex=acc.index
       log(`Using account ${acc.id} → ${m.username||m.user_id}`, m.user_id)
+
       const addRes=await fetch("/add-member",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({username:m.username,user_id:m.user_id,access_hash:m.access_hash,targetGroup:target})})
       const result=await addRes.json()
+
       if(result.status==="success") await new Promise(r=>setTimeout(r,20000))
+
       log(`${m.username||m.user_id} → ${result.status} (${acc.id})`, m.user_id)
       total++; counter.innerText=total; progress.style.width=(total%100)+"%"
     }
