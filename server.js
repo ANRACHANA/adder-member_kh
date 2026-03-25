@@ -163,12 +163,46 @@ async function autoJoinAllAccounts(group, logCallback){
 }
 
 // ===== /auto-join Route =====
-app.post('/auto-join', async(req,res)=>{
-  const { group } = req.body
-  if(!group) return res.json({status:"failed",reason:"Missing group"})
-  let logs = []
-  await autoJoinAllAccounts(group, msg => logs.push(msg))
-  res.json({status:"done",logs})
+// ===== Add Member =====
+app.post('/add-member', async(req,res)=>{
+  try{
+    const {username,user_id,access_hash,targetGroup}=req.body
+    const acc=getAvailableAccount()
+    if(!acc) return res.json({status:"failed",reason:"All FloodWait",accountUsed:"none"})
+    const client=await getClient(acc)
+    await autoJoin(client,targetGroup)
+    let status="failed", reason="unknown"
+    try{
+      let userEntity
+      if(username) userEntity=await client.getEntity(username)
+      else userEntity=new Api.InputUser({userId:user_id, accessHash:BigInt(access_hash)})
+      const group=await client.getEntity(targetGroup)
+      await client.invoke(new Api.channels.InviteToChannel({channel:group, users:[userEntity]}))
+      status="success"
+      reason="joined"
+      // Increase AddCount in Firebase
+      acc.addCount = (acc.addCount||0)+1
+      await update(ref(db,`accounts/${acc.id}`),{addCount:acc.addCount})
+      await sleep(30000 + Math.floor(Math.random()*10000))
+    }catch(err){
+      const wait=parseFlood(err)
+      if(wait){
+        const until=Date.now()+wait*1000
+        acc.floodWaitUntil=until
+        acc.status="floodwait"
+        await update(ref(db,`accounts/${acc.id}`),{status:"floodwait",floodWaitUntil:until})
+        reason=`FloodWait ${wait}s | Ready ${new Date(until).toLocaleString()}`
+      }else reason=err.message
+    }
+    if(status==="success"){
+      await push(ref(db,'history'),{
+        username,user_id,status,reason,accountUsed:acc.id,timestamp:Date.now()
+      })
+    }
+    res.json({status,reason,accountUsed:acc.phone||acc.id})
+  }catch(err){
+    res.json({status:"failed",reason:err.message,accountUsed:"unknown"})
+  }
 })
 
 // ===== Members =====
