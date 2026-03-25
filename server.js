@@ -244,7 +244,7 @@ app.get('/history', async(req,res)=>{
 // ===== Frontend =====
 const __filename=fileURLToPath(import.meta.url)
 const __dirname=path.dirname(__filename)
-app.use(express.static(__dirname)) // allow static files like default_avatar.png
+app.use(express.static(__dirname)) // allow static files
 app.get('/', (req,res)=>res.sendFile(path.join(__dirname,'index.html')))
 
 const PORT=process.env.PORT||3000
