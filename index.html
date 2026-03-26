@@ -361,84 +361,142 @@ const loadingBarWrapper = document.getElementById("loadingBarWrapper")
 
 startBtn.onclick = async () => {
 
+  // ===== Disable Button =====
+  startBtn.disabled = true
+  startBtn.style.cursor = "not-allowed"
+  startBtn.style.opacity = "0.6"
+  startBtn.style.transform = "scale(0.95)"
+  startBtn.style.boxShadow = "0 4px 8px rgba(0,0,0,0.2)"
 
+  try {
 
+    const sourceValue = document.getElementById("source").value.trim()
+    const target = document.getElementById("target").value.trim()
 
-  // Disable button ដើម្បីមិនចុចម្តងទៀត
-    startBtn.disabled = true;
-    startBtn.style.cursor = "not-allowed";
-    startBtn.style.opacity = "0.6"; // ផ្លាស់អោយច្បាស់ថា disabled
-
-    // បន្ថែម animation click ដូចដែលធ្លាប់
-    startBtn.style.transform = "scale(0.95)";
-    startBtn.style.boxShadow = "0 4px 8px rgba(0,0,0,0.2)";
-
-    try {
-        // ======= Your Auto Add code =======
-        await runAutoAdd(); // function ដែលដំណើរការ Auto Add members
-    } catch(e) {
-        console.error(e);
+    if(!sourceValue || !target){
+      alert("Enter usernames / links and target group")
+      return
     }
 
-    // បន្ទាប់ពី run សម្រេច ធ្វើ enable button វិញ
-    startBtn.disabled = false;
-    startBtn.style.cursor = "pointer";
-    startBtn.style.opacity = "1";
-    startBtn.style.transform = "scale(1)";
-    startBtn.style.boxShadow = "none";
-  const sourceValue = document.getElementById("source").value.trim()
-  const target = document.getElementById("target").value.trim()
-  if(!sourceValue || !target) return alert("Enter usernames / links and target group")
+    await loadHistory()
 
-  await loadHistory()
+    offset=0; total=0; accIndex=0
+    list.innerHTML = ""
+    consoleBox.innerHTML = ""
 
-  offset=0; total=0; accIndex=0
-  list.innerHTML = ""; consoleBox.innerHTML = ""
+    loadingBarWrapper.classList.remove("hidden")
 
-  loadingBarWrapper.classList.remove("hidden")
+    // ===== Detect Mode =====
+    let isGroupMode = sourceValue.includes("t.me/") && !sourceValue.includes("\n")
 
-  // ===== Detect Mode =====
-  let isGroupMode = false
-  if(sourceValue.includes("t.me/") && !sourceValue.includes("\n")){
-    isGroupMode = true
-  }
+    // ===============================
+    // 🔹 GROUP MODE
+    // ===============================
+    if(isGroupMode){
 
-  // ===============================
-  // 🔹 MODE 1: GROUP (EXPORT MEMBERS)
-  // ===============================
-  if(isGroupMode){
+      status.innerText = "Joining source group..."
+      await autoJoinAllAccounts(sourceValue)
 
-    status.innerText = "Joining source group..."
-    await autoJoinAllAccounts(sourceValue)
+      status.innerText = "Joining target group..."
+      await autoJoinAllAccounts(target)
 
-    status.innerText = "Joining target group..."
-    await autoJoinAllAccounts(target)
+      while(true){
 
-    while(true){
-      status.innerText = "Fetching members..."
+        status.innerText = "Fetching members..."
 
-      const res = await fetch("/members",{
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({ group:sourceValue, offset, limit:50 })
-      })
+        const res = await fetch("/members",{
+          method:"POST",
+          headers:{"Content-Type":"application/json"},
+          body:JSON.stringify({ group:sourceValue, offset, limit:50 })
+        })
 
-      const data = await res.json()
-      if(data.error){ alert(data.error); break }
+        const data = await res.json()
+        if(data.error){ alert(data.error); break }
 
-      const members = data.members || []
-      if(members.length === 0) break
+        const members = data.members || []
+        if(members.length === 0) break
 
-      offset = data.nextOffset
+        offset = data.nextOffset
+        const accounts = await getAccounts()
 
+        for(const m of members){
+
+          const userKey = m.user_id || m.username
+
+          if(historySet.has(userKey)){
+            log(`⏭️ Skipped ${m.username || m.user_id}`, userKey, "orange", "skipped")
+            total++
+            counter.innerText = total
+            continue
+          }
+
+          let acc = nextAccount(accounts, accIndex)
+
+          while(!acc){
+            status.innerText = "Waiting for accounts..."
+            await countdown(5,"Waiting account")
+            const accountsUpdated = await getAccounts()
+            acc = nextAccount(accountsUpdated,0)
+          }
+
+          accIndex = acc.index
+
+          status.innerText = `Adding: ${m.username || m.user_id}`
+          log(`🔹 Using ${acc.id} → ${m.username || m.user_id}`, userKey, "cyan")
+
+          try{
+            const addRes = await fetch("/add-member",{
+              method:"POST",
+              headers:{"Content-Type":"application/json"},
+              body:JSON.stringify({
+                username:m.username,
+                user_id:m.user_id,
+                access_hash:m.access_hash,
+                targetGroup:target
+              })
+            })
+
+            const result = await addRes.json()
+
+            let color = result.status==="success"?"lime":
+                        result.status==="failed"?"red":"orange"
+
+            log(`${m.username || m.user_id} → ${result.status}`, userKey, color, result.status)
+
+            if(result.status==="success"){
+              await countdown(20,"Delay")
+            }
+
+            total++
+            counter.innerText = total
+            progress.style.width = (total % 100)+"%"
+
+          }catch(err){
+            log(`❌ Error: ${err.message}`, userKey, "red", "failed")
+          }
+        }
+      }
+    }
+
+    // ===============================
+    // 🔹 TEXT MODE
+    // ===============================
+    else{
+
+      status.innerText = "Joining target group..."
+      await autoJoinAllAccounts(target)
+
+      let userList = sourceValue.split("\n").map(u=>u.trim()).filter(u=>u)
       const accounts = await getAccounts()
 
-      for(const m of members){
-        const userKey = m.user_id || m.username
+      for(const u of userList){
+
+        const userKey = u
 
         if(historySet.has(userKey)){
-          log(`⏭️ Skipped ${m.username || m.user_id}`, userKey, "orange")
-          total++; counter.innerText = total
+          log(`⏭️ Skipped ${u}`, userKey, "orange", "skipped")
+          total++
+          counter.innerText = total
           continue
         }
 
@@ -453,17 +511,15 @@ startBtn.onclick = async () => {
 
         accIndex = acc.index
 
-        status.innerText = `Adding: ${m.username || m.user_id}`
-        log(`🔹 Using ${acc.id} → ${m.username || m.user_id}`, userKey, "cyan")
+        status.innerText = `Adding: ${u}`
+        log(`🔹 Using ${acc.id} → ${u}`, userKey, "yellow")
 
         try{
           const addRes = await fetch("/add-member",{
             method:"POST",
             headers:{"Content-Type":"application/json"},
             body:JSON.stringify({
-              username:m.username,
-              user_id:m.user_id,
-              access_hash:m.access_hash,
+              username:u,
               targetGroup:target
             })
           })
@@ -473,7 +529,7 @@ startBtn.onclick = async () => {
           let color = result.status==="success"?"lime":
                       result.status==="failed"?"red":"orange"
 
-          log(`${m.username || m.user_id} → ${result.status}`, userKey, color)
+          log(`${u} → ${result.status}`, userKey, color, result.status)
 
           if(result.status==="success"){
             await countdown(20,"Delay")
@@ -484,84 +540,24 @@ startBtn.onclick = async () => {
           progress.style.width = (total % 100)+"%"
 
         }catch(err){
-          log(`❌ Error: ${err.message}`, userKey, "red")
+          log(`❌ Error: ${err.message}`, userKey, "red", "failed")
         }
       }
     }
 
+    loadingBarWrapper.classList.add("hidden")
+    status.innerText = "Finished ✅"
+
+  } catch(e){
+    console.error(e)
   }
 
-  // ===============================
-  // 🔹 MODE 2: TEXTAREA (@USERNAME)
-  // ===============================
-  else{
-
-    status.innerText = "Joining target group..."
-    await autoJoinAllAccounts(target)
-
-    let userList = sourceValue
-      .split("\n")
-      .map(u => u.trim())
-      .filter(u => u)
-
-    const accounts = await getAccounts()
-
-    for(const u of userList){
-      let userKey = u
-
-      if(historySet.has(userKey)){
-        log(`⏭️ Skipped ${u}`, userKey, "orange")
-        total++; counter.innerText = total
-        continue
-      }
-
-      let acc = nextAccount(accounts, accIndex)
-
-      while(!acc){
-        status.innerText = "Waiting for accounts..."
-        await countdown(5,"Waiting account")
-        const accountsUpdated = await getAccounts()
-        acc = nextAccount(accountsUpdated,0)
-      }
-
-      accIndex = acc.index
-
-      status.innerText = `Adding: ${u}`
-      log(`🔹 Using ${acc.id} → ${u}`, userKey, "yellow")
-
-      try{
-        const addRes = await fetch("/add-member", {
-          method:"POST",
-          headers:{"Content-Type":"application/json"},
-          body:JSON.stringify({
-            username:u,
-            targetGroup:target
-          })
-        })
-
-        const result = await addRes.json()
-
-        let color = result.status==="success"?"lime":
-                    result.status==="failed"?"red":"orange"
-
-        log(`${u} → ${result.status}`, userKey, color)
-
-        if(result.status==="success"){
-          await countdown(20,"Delay")
-        }
-
-        total++
-        counter.innerText = total
-        progress.style.width = (total % 100)+"%"
-
-      }catch(err){
-        log(`❌ Error: ${err.message}`, userKey, "red")
-      }
-    }
-  }
-
-  loadingBarWrapper.classList.add("hidden")
-  status.innerText = "Finished ✅"
+  // ===== Enable Button AFTER DONE =====
+  startBtn.disabled = false
+  startBtn.style.cursor = "pointer"
+  startBtn.style.opacity = "1"
+  startBtn.style.transform = "scale(1)"
+  startBtn.style.boxShadow = "none"
 }
 const statusText = document.getElementById("statusText")
 
