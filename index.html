@@ -12,7 +12,8 @@ body{font-family:'JetBrains Mono',monospace;background:#0d0d1a;color:#fff;margin
 section{background:linear-gradient(135deg,#1b1b2e,#11111f);border-radius:20px;padding:20px;margin-bottom:20px;}
 .card-title{font-size:22px;font-weight:700;color:#00ff7f;text-align:center;margin-bottom:10px;}
 input,select{width:100%;padding:10px;margin-top:10px;border-radius:10px;background:#111;color:#fff;border:none;}
-button{width:100%;padding:12px;margin-top:10px;border:none;border-radius:10px;font-weight:700;cursor:pointer;transition:0.2s;}
+button{width:auto;padding:12px;margin-top:10px;border:none;border-radius:10px;font-weight:700;cursor:pointer;transition:0.2s;}
+
 button:hover{opacity:0.85;}
 .success{color:#00ff7f;font-weight:700;}
 .failed{color:#ff4c4c;font-weight:700;}
@@ -25,10 +26,10 @@ ul{list-style:none;padding:0;max-height:300px;overflow-y:auto;background:#111;bo
 table{width:100%;border-collapse:collapse;margin-top:10px;background:#111;border-radius:10px;display:block;overflow-x:auto;}
 th,td{padding:5px;border:1px solid #222;text-align:left;}
 th{background:#222;}
-.bar-buttons{display:flex;gap:10px;margin-bottom:15px;}
+.bar-buttons{display:flex;gap:10px;margin-bottom:15px;width: 30%;}
 .bar-buttons button{flex:1;border-radius:10px;}
-#btnAutoAddPage{background:#00ff7f;}
-#btnHistoryPage{background:#00ccff;}
+#btnAutoAddPage{background:#666e6a;color: #00ff7f;}
+#btnHistoryPage{background:#5f6263;color: orange;}
 .hidden{display:none;}
 tbody{display:block;max-height:300px;overflow-y:auto;}
 thead, tbody tr{display:table;width:100%;table-layout:fixed;}
@@ -38,7 +39,13 @@ thead, tbody tr{display:table;width:100%;table-layout:fixed;}
   .container {padding:10px;}
   input, select, button {font-size:14px;padding:8px;}
   .card-title {font-size:18px;}
-  .bar-buttons {flex-direction:column; gap:8px;}
+   .bar-buttons button,
+  #autoAddPage button,
+  button.inline-btn {
+    width: 100%;          /* ទទឹងពេញ container */
+    box-sizing: border-box;
+  }
+
   table, thead, tbody, th, td, tr {display:block;}
   thead tr {display:none;}
   tbody tr {margin-bottom:10px;border:1px solid #222;border-radius:10px;padding:5px;background:#111;}
@@ -73,20 +80,38 @@ thead, tbody tr{display:table;width:100%;table-layout:fixed;}
   50% { left: 100%; }
   100% { left: -30%; }
 }
+#statusBar{
+  margin-top:10px;
+  background: linear-gradient(135deg,#111,#1a1a2e);
+  padding:10px 15px;
+  border-radius:12px;
+  text-align:center;
+  font-size:14px;
+  font-weight:600;
+  letter-spacing:0.5px;
+  box-shadow:0 0 10px rgba(0,255,127,0.2);
+}
+
+#statusText{
+  color:#00ff7f;
+  transition: all 0.3s ease;
+}
 </style>
 </head>
 <body>
 <div class="container">
 
-<div class="bar-buttons">
-  <button id="btnAutoAddPage">Auto Add Members</button>
-  <button id="btnHistoryPage">History & Accounts</button>
-</div>
+
 
 <!-- ===== Auto Add ===== -->
 <section id="autoAddPage">
-  <div class="card-title">Auto Add Members</div>
 
+  <div class="card-title">Auto Add Members</div>
+  <div class="bar-buttons">
+  
+  <button id="btnHistoryPage">History</button>
+</div>
+ 
   <!-- Multi-line textarea for usernames / links -->
   <textarea id="source" placeholder="Enter multiple @usernames or Telegram links, one per line"
             style="width:100%; height:100px; padding:10px; border-radius:10px; background:#111; color:#fff; border:none; resize:vertical; margin-bottom:10px;"></textarea>
@@ -94,9 +119,20 @@ thead, tbody tr{display:table;width:100%;table-layout:fixed;}
   <input id="target" placeholder="Target Group" 
          style="width:100%; padding:10px; border-radius:10px; background:#111; color:#fff; border:none; margin-bottom:10px;">
 
-  <button id="start" style="width:100%; padding:12px; border:none; border-radius:10px; font-weight:700; cursor:pointer; background:#00ff7f; margin-bottom:10px;">
-    START AUTO ADD
-  </button>
+<button id="start" style="
+  display:block;
+  width:50%;
+  padding:12px;
+  border:none;
+  border-radius:10px;
+  font-weight:700;
+  color: rgb(248, 255, 250);
+  cursor:pointer;
+  background:#069544;
+  transition: transform 0.1s ease, box-shadow 0.1s ease; /* animation */
+">
+  START AUTO ADD
+</button>
 
   <!-- Loading Bar -->
   <div id="loadingBarWrapper" class="hidden">
@@ -104,9 +140,26 @@ thead, tbody tr{display:table;width:100%;table-layout:fixed;}
   </div>
 
   <!-- Status & Counter -->
-  <div id="status">Ready</div>
-  <div id="counter">0</div>
+  <div id="statusBar">
+    <span id="statusText">Ready</span>
+    <div id="counter">0</div>
+  </div>
+  
+<div id="summaryBox" style="
+  margin-top:10px;
+  display:flex;
+  gap:15px;
+  font-weight:700;
+  font-size:14px;
+  flex-wrap:wrap;
+  font-size:14px;
 
+">
+  <span class="success" style="color:#00ff7f;">✅ Success: <span id="successCount">0</span></span>
+  <span class="failed" style="color:#ff4c4c;">| ❌ Failed: <span id="failedCount">0</span></span>
+  <span class="skipped" style="color:orange;">| ⏭️ Skipped: <span id="skippedCount">0</span></span>
+  <span class="total" style="color:#00ccff;">| Total: <span id="totalCount">0</span></span>
+</div>
   <!-- Progress Bar -->
   <div class="progress-bar">
     <div id="progress" class="progress"></div>
@@ -120,6 +173,10 @@ thead, tbody tr{display:table;width:100%;table-layout:fixed;}
 <!-- ===== History & Accounts ===== -->
 <section id="historyPage" class="hidden">
   <div class="card-title">Accounts Status</div>
+  <div class="bar-buttons">
+  <button id="btnAutoAddPage">home</button>
+  
+</div>
 <table id="accountTable">
   <thead>
     <tr>
@@ -135,6 +192,20 @@ thead, tbody tr{display:table;width:100%;table-layout:fixed;}
 <button id="refreshAccounts">Refresh Accounts</button>
 
 <div class="card-title">History</div>
+<!-- ===== History Summary ===== -->
+<div id="historySummary" style="
+  margin-top:10px;
+  display:flex;
+  gap:15px;
+  font-weight:700;
+  font-size:14px;
+  flex-wrap:wrap;
+">
+  <span id="historySuccess" style="color:#00ff7f">✅ Success: 0</span>
+  <span id="historyFailed" style="color:#ff4c4c">| ❌ Failed: 0</span>
+  <span id="historySkipped" style="color:orange">| ⏭️ Skipped: 0</span>
+  <span id="historyTotal" style="color:#00ccff">| Total: 0</span>
+</div>
 <table id="historyTable">
   <thead>
     <tr>
@@ -161,10 +232,14 @@ const historyBody=document.getElementById("historyBody")
 let historySet=new Set()
 
 async function loadHistory(){
-  const res=await fetch("/history")
-  const data=await res.json()
-  historyBody.innerHTML=""
+  const res = await fetch("/history")
+  const data = await res.json()
+  historyBody.innerHTML = ""
   historySet.clear()
+
+  // ===== summary counters =====
+  let success = 0, failed = 0, skipped = 0, total = 0
+
   Object.values(data).forEach(h=>{
     const tr=document.createElement("tr")
     tr.innerHTML=`<td>${h.username||h.user_id}</td>
@@ -175,7 +250,19 @@ async function loadHistory(){
     historyBody.appendChild(tr)
     if(h.user_id) historySet.add(h.user_id)
     else if(h.username) historySet.add(h.username)
+
+    // ===== count summary =====
+    if(h.status==="success") success++
+    else if(h.status==="failed") failed++
+    else skipped++
+    total++
   })
+
+  // ===== update summary UI =====
+  document.getElementById("historySuccess").innerText = `✅ Success: ${success}`
+  document.getElementById("historyFailed").innerText = `❌ Failed: ${failed}`
+  document.getElementById("historySkipped").innerText = `⏭️ Skipped: ${skipped}`
+  document.getElementById("historyTotal").innerText = `🧮 Total: ${total}`
 }
 document.getElementById("refreshHistory").onclick=loadHistory
 setInterval(loadHistory,5000)
@@ -208,15 +295,41 @@ const list=document.getElementById("list")
 const consoleBox=document.getElementById("console")
 let offset=0,total=0,accIndex=0
 
-function log(msg,user_id=null,color=null){
-    const li=document.createElement("li")
-    li.innerHTML=msg
-    if(color) li.style.color=color
-    list.appendChild(li)
-    list.scrollTop=list.scrollHeight
-    consoleBox.innerHTML+=msg+"<br>"
-    consoleBox.scrollTop=consoleBox.scrollHeight
-    if(user_id) historySet.add(user_id)
+// ===== Variables Summary =====
+let successCount = 0;
+let failedCount = 0;
+let skippedCount = 0;
+
+function log(msg, user_id=null, color=null, status=null){
+    // បង្កើត li
+    const li = document.createElement("li");
+    li.innerHTML = msg;
+    if(color) li.style.color = color;
+    list.appendChild(li);
+    list.scrollTop = list.scrollHeight;
+
+    // Update console
+    consoleBox.innerHTML += msg + "<br>";
+    consoleBox.scrollTop = consoleBox.scrollHeight;
+
+    // ===== Update Summary =====
+    if(status === "success"){
+        successCount++;
+        document.getElementById("successCount").innerText = successCount;
+    } else if(status === "failed"){
+        failedCount++;
+        document.getElementById("failedCount").innerText = failedCount;
+    } else if(status === "skipped"){
+        skippedCount++;
+        document.getElementById("skippedCount").innerText = skippedCount;
+    }
+
+    // Update Total
+    const total = successCount + failedCount + skippedCount;
+    document.getElementById("totalCount").innerText = total;
+
+    // Add to history set
+    if(user_id) historySet.add(user_id);
 }
 
 async function getAccounts(){ const res=await fetch("/account-status"); return await res.json() }
@@ -247,6 +360,32 @@ async function autoJoinAllAccounts(group){
 const loadingBarWrapper = document.getElementById("loadingBarWrapper")
 
 startBtn.onclick = async () => {
+
+
+
+
+  // Disable button ដើម្បីមិនចុចម្តងទៀត
+    startBtn.disabled = true;
+    startBtn.style.cursor = "not-allowed";
+    startBtn.style.opacity = "0.6"; // ផ្លាស់អោយច្បាស់ថា disabled
+
+    // បន្ថែម animation click ដូចដែលធ្លាប់
+    startBtn.style.transform = "scale(0.95)";
+    startBtn.style.boxShadow = "0 4px 8px rgba(0,0,0,0.2)";
+
+    try {
+        // ======= Your Auto Add code =======
+        await runAutoAdd(); // function ដែលដំណើរការ Auto Add members
+    } catch(e) {
+        console.error(e);
+    }
+
+    // បន្ទាប់ពី run សម្រេច ធ្វើ enable button វិញ
+    startBtn.disabled = false;
+    startBtn.style.cursor = "pointer";
+    startBtn.style.opacity = "1";
+    startBtn.style.transform = "scale(1)";
+    startBtn.style.boxShadow = "none";
   const sourceValue = document.getElementById("source").value.trim()
   const target = document.getElementById("target").value.trim()
   if(!sourceValue || !target) return alert("Enter usernames / links and target group")
@@ -388,7 +527,7 @@ startBtn.onclick = async () => {
       accIndex = acc.index
 
       status.innerText = `Adding: ${u}`
-      log(`🔹 Using ${acc.id} → ${u}`, userKey, "cyan")
+      log(`🔹 Using ${acc.id} → ${u}`, userKey, "yellow")
 
       try{
         const addRes = await fetch("/add-member", {
@@ -424,7 +563,41 @@ startBtn.onclick = async () => {
   loadingBarWrapper.classList.add("hidden")
   status.innerText = "Finished ✅"
 }
+const statusText = document.getElementById("statusText")
 
+function formatTime(sec){
+  const h = Math.floor(sec / 3600)
+  const m = Math.floor((sec % 3600) / 60)
+  const s = sec % 60
+
+  return [
+    h.toString().padStart(2,'0'),
+    m.toString().padStart(2,'0'),
+    s.toString().padStart(2,'0')
+  ].join(':')
+}
+
+function getFinishTime(sec){
+  const now = new Date()
+  const finish = new Date(now.getTime() + sec * 1000)
+  return finish.toLocaleTimeString('en-GB',{hour12:false})
+}
+
+async function countdown(sec,label="Delay"){
+  const finishTime = getFinishTime(sec)
+
+  for(let i=sec;i>0;i--){
+    statusText.innerText = `${label} ⏳ ${formatTime(i)} (Finish ${finishTime})`
+
+    // color effect
+    statusText.style.color = i<=10 ? "#ff4c4c" : "#00ff7f"
+
+    await new Promise(r=>setTimeout(r,1000))
+  }
+
+  statusText.innerText = "Processing..."
+  statusText.style.color = "#00ff7f"
+}
 </script>
 </div>
 </body>
