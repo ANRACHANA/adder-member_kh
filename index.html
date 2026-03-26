@@ -287,8 +287,7 @@ document.getElementById("refreshAccounts").onclick=loadAccounts
 setInterval(loadAccounts,5000)
 
 // ===== Auto Add =====
-const startBtn=document.getElementById("start")
-const status=document.getElementById("status")
+const statusText = document.getElementById("statusText")
 const counter=document.getElementById("counter")
 const progress=document.getElementById("progress")
 const list=document.getElementById("list")
@@ -393,16 +392,14 @@ startBtn.onclick = async () => {
     // 🔹 GROUP MODE
     // ===============================
     if(isGroupMode){
-
-      status.innerText = "Joining source group..."
+      statusText.innerText = "Joining source group..."
       await autoJoinAllAccounts(sourceValue)
-
-      status.innerText = "Joining target group..."
+      statusText.innerText = "Joining source group..."
       await autoJoinAllAccounts(target)
 
       while(true){
 
-        status.innerText = "Fetching members..."
+        statusText.innerText = "Fetching members..."
 
         const res = await fetch("/members",{
           method:"POST",
@@ -433,16 +430,17 @@ startBtn.onclick = async () => {
           let acc = nextAccount(accounts, accIndex)
 
           while(!acc){
-            status.innerText = "Waiting for accounts..."
-            await countdown(5,"Waiting account")
+            statusText.innerText = "Waiting for accounts..."
+            await countdown(20,"Waiting account")
+
             const accountsUpdated = await getAccounts()
             acc = nextAccount(accountsUpdated,0)
           }
 
           accIndex = acc.index
 
-          status.innerText = `Adding: ${m.username || m.user_id}`
-          log(`🔹 Using ${acc.id} → ${m.username || m.user_id}`, userKey, "cyan")
+          statusText.innerText = `Adding: ${m.username || m.user_id}`
+          log(`🔹 Using ${acc.id} → ${m.username || m.user_id}`, userKey, "yellow")
 
           try{
             const addRes = await fetch("/add-member",{
@@ -461,7 +459,7 @@ startBtn.onclick = async () => {
             let color = result.status==="success"?"lime":
                         result.status==="failed"?"red":"orange"
 
-            log(`${m.username || m.user_id} → ${result.status}`, userKey, color, result.status)
+            log(`${m.username || m.user_id} → ${result.statusText}`, userKey, color, result.statusText)
 
             if(result.status==="success"){
               await countdown(20,"Delay")
@@ -469,8 +467,7 @@ startBtn.onclick = async () => {
 
             total++
             counter.innerText = total
-            progress.style.width = (total % 100)+"%"
-
+            progress.style.width = Math.min((total / totalMembers) * 100, 100) + "%"
           }catch(err){
             log(`❌ Error: ${err.message}`, userKey, "red", "failed")
           }
@@ -483,7 +480,7 @@ startBtn.onclick = async () => {
     // ===============================
     else{
 
-      status.innerText = "Joining target group..."
+      statusText.innerText = "Joining target group..."
       await autoJoinAllAccounts(target)
 
       let userList = sourceValue.split("\n").map(u=>u.trim()).filter(u=>u)
@@ -503,15 +500,15 @@ startBtn.onclick = async () => {
         let acc = nextAccount(accounts, accIndex)
 
         while(!acc){
-          status.innerText = "Waiting for accounts..."
-          await countdown(5,"Waiting account")
+          statusText.innerText = "Waiting for accounts..."
+          await countdown(20,"Waiting account")
           const accountsUpdated = await getAccounts()
           acc = nextAccount(accountsUpdated,0)
         }
 
         accIndex = acc.index
 
-        status.innerText = `Adding: ${u}`
+       statusText.innerText = `Adding: ${u}`
         log(`🔹 Using ${acc.id} → ${u}`, userKey, "yellow")
 
         try{
@@ -529,7 +526,7 @@ startBtn.onclick = async () => {
           let color = result.status==="success"?"lime":
                       result.status==="failed"?"red":"orange"
 
-          log(`${u} → ${result.status}`, userKey, color, result.status)
+          log(`${u} → ${result.statusText}`, userKey, color, result.statusText)
 
           if(result.status==="success"){
             await countdown(20,"Delay")
@@ -546,7 +543,7 @@ startBtn.onclick = async () => {
     }
 
     loadingBarWrapper.classList.add("hidden")
-    status.innerText = "Finished ✅"
+    statusText.innerText = "Finished ✅"
 
   } catch(e){
     console.error(e)
@@ -559,7 +556,6 @@ startBtn.onclick = async () => {
   startBtn.style.transform = "scale(1)"
   startBtn.style.boxShadow = "none"
 }
-const statusText = document.getElementById("statusText")
 
 function formatTime(sec){
   const h = Math.floor(sec / 3600)
