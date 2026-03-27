@@ -9,9 +9,9 @@
 *{box-sizing:border-box;}
 body{font-family:'JetBrains Mono',monospace;background:#0d0d1a;color:#fff;margin:0;}
 .container{max-width:1000px;margin:auto;padding:15px;}
-section{background:linear-gradient(135deg,#04709ea1,#029082a6);border-radius:20px;padding:20px;margin-bottom:20px;}
+section{background:linear-gradient(135deg,#047c8ec5,#036158fb);border-radius:20px;padding:20px;margin-bottom:20px;}
 .card-title{font-size:22px;font-weight:700;color:#00ff7f;text-align:center;margin-bottom:10px;}
-input,select{width:100%;padding:10px;margin-top:10px;border-radius:10px;background:#4741416e;color:#fff;border:none;}
+input,select{width:100%;padding:10px;margin-top:10px;border-radius:10px;background:#353333;color:#fff;border:none;}
 button{width:auto;padding:12px;margin-top:10px;border:none;border-radius:10px;font-weight:700;cursor:pointer;transition:0.2s;}
 
 button:hover{opacity:0.85;}
@@ -155,10 +155,11 @@ thead, tbody tr{display:table;width:100%;table-layout:fixed;}
  
   <!-- Multi-line textarea for usernames / links -->
   <textarea id="source" placeholder="Enter multiple @usernames or Telegram links, one per line"
-            style="width:100%; height:100px; padding:10px; border-radius:10px; background:#4a4a4a; color:#fff; border:none; resize:vertical; margin-bottom:10px;"></textarea>
+            style="width:100%; height:100px; padding:10px; border-radius:10px; background:#f4f0f0dd; color:#0015ff; border:none; resize:vertical; margin-bottom:10px;"></textarea>
 
   <input id="target" placeholder="Target Group" 
-         style="width:100%; padding:10px; border-radius:10px; background:#4a4a4a; color:#fff; border:none; margin-bottom:10px;">
+         style="width:100%; padding:10px; border-radius:10px; background:#f4f0f0e7; color:#0015ff; border:none; margin-bottom:10px;">
+         
 
 <button id="start" style="
   display:block;
@@ -378,6 +379,14 @@ async function autoJoinAllAccounts(group){
 const loadingBarWrapper = document.getElementById("loadingBarWrapper")
 
 startBtn.onclick = async () => {
+  successCount = 0;
+failedCount = 0;
+skippedCount = 0;
+
+document.getElementById("successCount").innerText = 0;
+document.getElementById("failedCount").innerText = 0;
+document.getElementById("skippedCount").innerText = 0;
+  
   const sourceValue = document.getElementById("source").value.trim()
   const target = document.getElementById("target").value.trim()
   if(!sourceValue || !target) return alert("Enter usernames / links and target group")
@@ -429,10 +438,12 @@ startBtn.onclick = async () => {
         const userKey = m.user_id || m.username
 
         if(historySet.has(userKey)){
-          log(`⏭️ Skipped ${m.username || m.user_id}`, userKey, "orange")
-          total++; counter.innerText = total
-          continue
-        }
+  log(`⏭️ Skipped ${m.username || m.user_id}`, userKey, "orange")
+  updateSummary("skipped")   // 🔹 បូកស្ថានភាព skipped មុន continue
+  total++; 
+  counter.innerText = total
+  continue
+}
 
         let acc = nextAccount(accounts, accIndex)
 
@@ -466,6 +477,7 @@ startBtn.onclick = async () => {
                       result.status==="failed"?"red":"orange"
 
           log(`${m.username || m.user_id} → ${result.status}`, userKey, color)
+updateSummary(result.status)
 
           if(result.status==="success"){
             await countdown(20,"Delay")
@@ -473,7 +485,8 @@ startBtn.onclick = async () => {
 
           total++
           counter.innerText = total
-          progress.style.width = (total % 100)+"%"
+          const percent = Math.min((total / (userList?.length || 100)) * 100, 100)
+progress.style.width = percent + "%"
 
         }catch(err){
           log(`❌ Error: ${err.message}`, userKey, "red")
@@ -537,6 +550,7 @@ startBtn.onclick = async () => {
                     result.status==="failed"?"red":"orange"
 
         log(`${u} → ${result.status}`, userKey, color)
+updateSummary(result.status)
 
         if(result.status==="success"){
           await countdown(20,"Delay")
@@ -544,7 +558,8 @@ startBtn.onclick = async () => {
 
         total++
         counter.innerText = total
-        progress.style.width = (total % 100)+"%"
+        const percent = Math.min((total / (userList?.length || 100)) * 100, 100)
+progress.style.width = percent + "%"
 
       }catch(err){
         log(`❌ Error: ${err.message}`, userKey, "red")
@@ -555,7 +570,20 @@ startBtn.onclick = async () => {
   loadingBarWrapper.classList.add("hidden")
   status.innerText = "Finished ✅"
 }
-
+function updateSummary(status){
+  if(status === "success"){
+    successCount++;
+    document.getElementById("successCount").innerText = successCount;
+  } 
+  else if(status === "failed"){
+    failedCount++;
+    document.getElementById("failedCount").innerText = failedCount;
+  } 
+  else {
+    skippedCount++;
+    document.getElementById("skippedCount").innerText = skippedCount;
+  }
+}
 
 </script>
 </div>
