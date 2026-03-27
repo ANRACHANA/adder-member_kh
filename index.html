@@ -9,9 +9,9 @@
 *{box-sizing:border-box;}
 body{font-family:'JetBrains Mono',monospace;background:#0d0d1a;color:#fff;margin:0;}
 .container{max-width:1000px;margin:auto;padding:15px;}
-section{background:linear-gradient(135deg,#1b1b2e,#11111f);border-radius:20px;padding:20px;margin-bottom:20px;}
+section{background:linear-gradient(135deg,#04709ea1,#029082a6);border-radius:20px;padding:20px;margin-bottom:20px;}
 .card-title{font-size:22px;font-weight:700;color:#00ff7f;text-align:center;margin-bottom:10px;}
-input,select{width:100%;padding:10px;margin-top:10px;border-radius:10px;background:#111;color:#fff;border:none;}
+input,select{width:100%;padding:10px;margin-top:10px;border-radius:10px;background:#4741416e;color:#fff;border:none;}
 button{width:auto;padding:12px;margin-top:10px;border:none;border-radius:10px;font-weight:700;cursor:pointer;transition:0.2s;}
 
 button:hover{opacity:0.85;}
@@ -22,7 +22,7 @@ button:hover{opacity:0.85;}
 ul{list-style:none;padding:0;max-height:300px;overflow-y:auto;background:#111;border-radius:10px;margin-top:10px;}
 .console{background:#111;padding:10px;border-radius:10px;height:150px;overflow:auto;font-size:12px;margin-top:10px;}
 .progress-bar{background:#111;height:10px;border-radius:10px;margin-top:10px;}
-.progress{background:#00ff7f;height:10px;width:0%;border-radius:10px;}
+.progress{background:#00ff22;height:10px;width:0%;border-radius:10px;}
 table{width:100%;border-collapse:collapse;margin-top:10px;background:#111;border-radius:10px;display:block;overflow-x:auto;}
 th,td{padding:5px;border:1px solid #222;text-align:left;}
 th{background:#222;}
@@ -65,31 +65,72 @@ thead, tbody tr{display:table;width:100%;table-layout:fixed;}
   position: relative;
 }
 
-#loadingBar {
-  width: 30%;
-  height: 100%;
-  background: #00ff7f;
+#loadingContainer {
+  width: 100%;
+  height: 6px;
+  background: #1a1a1a;
   border-radius: 10px;
-  position: absolute;
-  left: -30%;
-  animation: loadingMove 1.5s linear infinite;
+  overflow: hidden;
+  position: relative;
 }
 
-@keyframes loadingMove {
-  0% { left: -30%; }
-  50% { left: 100%; }
-  100% { left: -30%; }
+/* Bar ទី 1 */
+#loadingBar {
+  position: absolute;
+  width: 30%;
+  height: 100%;
+  left: -30%;
+  background: linear-gradient(90deg, transparent, #00ff7f, #00fbff, transparent);
+  border-radius: 10px;
+  filter: blur(1px);
+  box-shadow: 0 0 10px #00ff7f, 0 0 20px #d9ff00;
+  animation: moveBar1 1.4s ease-in-out infinite;
+}
+
+/* Bar ទី 2 */
+#loadingBar::after {
+  content: "";
+  position: absolute;
+  width: 30%;
+  height: 100%;
+  left: -30%;
+  background: linear-gradient(90deg, transparent, #00e6ff, #00ffcc, transparent);
+  border-radius: 10px;
+  filter: blur(1px);
+  box-shadow: 0 0 10px #00e6ff, 0 0 20px #00ffcc;
+  animation: moveBar2 1.4s ease-in-out infinite;
+}
+
+/* Animation ទី 1 */
+@keyframes moveBar1 {
+  0% { left: -30%; opacity: 0; }
+  20% { opacity: 1; }
+  50% { left: 100%; opacity: 1; }
+  100% { left: 100%; opacity: 0; }
+}
+
+/* Animation ទី 2 (delay) */
+@keyframes moveBar2 {
+  0% { left: -30%; opacity: 0; }
+  20% { opacity: 1; }
+  50% { left: 100%; opacity: 1; }
+  100% { left: 100%; opacity: 0; }
+}
+
+#loadingBar::after {
+  animation-delay: 0.7s;
 }
 #statusBar{
   margin-top:10px;
-  background: linear-gradient(135deg,#111,#1a1a2e);
+  width: 100%;
+  background: linear-gradient(135deg,#9d9797c2,#6e6e62ca);
   padding:10px 15px;
   border-radius:12px;
   text-align:center;
   font-size:14px;
   font-weight:600;
   letter-spacing:0.5px;
-  box-shadow:0 0 10px rgba(0,255,127,0.2);
+  box-shadow:0 0 10px rgba(119, 137, 2, 0.741);
 }
 
 #statusText{
@@ -114,10 +155,10 @@ thead, tbody tr{display:table;width:100%;table-layout:fixed;}
  
   <!-- Multi-line textarea for usernames / links -->
   <textarea id="source" placeholder="Enter multiple @usernames or Telegram links, one per line"
-            style="width:100%; height:100px; padding:10px; border-radius:10px; background:#111; color:#fff; border:none; resize:vertical; margin-bottom:10px;"></textarea>
+            style="width:100%; height:100px; padding:10px; border-radius:10px; background:#4a4a4a; color:#fff; border:none; resize:vertical; margin-bottom:10px;"></textarea>
 
   <input id="target" placeholder="Target Group" 
-         style="width:100%; padding:10px; border-radius:10px; background:#111; color:#fff; border:none; margin-bottom:10px;">
+         style="width:100%; padding:10px; border-radius:10px; background:#4a4a4a; color:#fff; border:none; margin-bottom:10px;">
 
 <button id="start" style="
   display:block;
@@ -128,10 +169,10 @@ thead, tbody tr{display:table;width:100%;table-layout:fixed;}
   font-weight:700;
   color: rgb(248, 255, 250);
   cursor:pointer;
-  background:#069544;
+    background: linear-gradient(135deg,#ffcc02e7,#05ae73ba);
   transition: transform 0.1s ease, box-shadow 0.1s ease; /* animation */
 ">
-  START AUTO ADD
+  START
 </button>
 
   <!-- Loading Bar -->
@@ -142,7 +183,6 @@ thead, tbody tr{display:table;width:100%;table-layout:fixed;}
   <!-- Status & Counter -->
   <div id="statusBar">
     <span id="status">Ready</span>
-    <div id="counter">0</div>
   </div>
   
 <div id="summaryBox" style="
@@ -158,7 +198,7 @@ thead, tbody tr{display:table;width:100%;table-layout:fixed;}
   <span class="success" style="color:#00ff7f;">✅ Success: <span id="successCount">0</span></span>
   <span class="failed" style="color:#ff4c4c;">| ❌ Failed: <span id="failedCount">0</span></span>
   <span class="skipped" style="color:orange;">| ⏭️ Skipped: <span id="skippedCount">0</span></span>
-  <span class="total" style="color:#00ccff;">| Total: <span id="totalCount">0</span></span>
+  <span class="total" style="color:#00ccff;">| Total: <span id="counter">0</span></span>
 </div>
   <!-- Progress Bar -->
   <div class="progress-bar">
@@ -406,7 +446,7 @@ startBtn.onclick = async () => {
         accIndex = acc.index
 
         status.innerText = `Adding: ${m.username || m.user_id}`
-        log(`🔹 Using ${acc.id} → ${m.username || m.user_id}`, userKey, "cyan")
+        log(`🔹 Using ${acc.id} → ${m.username || m.user_id}`, userKey, "dark")
 
         try{
           const addRes = await fetch("/add-member",{
