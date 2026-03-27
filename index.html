@@ -299,36 +299,15 @@ let successCount = 0;
 let failedCount = 0;
 let skippedCount = 0;
 
-function log(msg, user_id=null, color=null, status=null){
-    // បង្កើត li
-    const li = document.createElement("li");
-    li.innerHTML = msg;
-    if(color) li.style.color = color;
-    list.appendChild(li);
-    list.scrollTop = list.scrollHeight;
-
-    // Update console
-    consoleBox.innerHTML += msg + "<br>";
-    consoleBox.scrollTop = consoleBox.scrollHeight;
-
-    // ===== Update Summary =====
-    if(status === "success"){
-        successCount++;
-        document.getElementById("successCount").innerText = successCount;
-    } else if(status === "failed"){
-        failedCount++;
-        document.getElementById("failedCount").innerText = failedCount;
-    } else if(status === "skipped"){
-        skippedCount++;
-        document.getElementById("skippedCount").innerText = skippedCount;
-    }
-
-    // Update Total
-    const total = successCount + failedCount + skippedCount;
-    document.getElementById("totalCount").innerText = total;
-
-    // Add to history set
-    if(user_id) historySet.add(user_id);
+function log(msg,user_id=null,color=null){
+    const li=document.createElement("li")
+    li.innerHTML=msg
+    if(color) li.style.color=color
+    list.appendChild(li)
+    list.scrollTop=list.scrollHeight
+    consoleBox.innerHTML+=msg+"<br>"
+    consoleBox.scrollTop=consoleBox.scrollHeight
+    if(user_id) historySet.add(user_id)
 }
 
 async function getAccounts(){ const res=await fetch("/account-status"); return await res.json() }
@@ -363,10 +342,11 @@ startBtn.onclick = async () => {
   const target = document.getElementById("target").value.trim()
   if(!sourceValue || !target) return alert("Enter usernames / links and target group")
 
-  await loadHistory() // preload historySet
+  await loadHistory()
 
-  offset = 0; total = 0; accIndex = 0
+  offset=0; total=0; accIndex=0
   list.innerHTML = ""; consoleBox.innerHTML = ""
+
   loadingBarWrapper.classList.remove("hidden")
 
   // ===== Detect Mode =====
@@ -379,13 +359,12 @@ startBtn.onclick = async () => {
   // 🔹 MODE 1: GROUP (EXPORT MEMBERS)
   // ===============================
   if(isGroupMode){
+
     status.innerText = "Joining source group..."
     await autoJoinAllAccounts(sourceValue)
 
     status.innerText = "Joining target group..."
     await autoJoinAllAccounts(target)
-
-    let totalMembers = 0
 
     while(true){
       status.innerText = "Fetching members..."
@@ -402,8 +381,7 @@ startBtn.onclick = async () => {
       const members = data.members || []
       if(members.length === 0) break
 
-      offset = data.nextOffset || 0
-      totalMembers += members.length
+      offset = data.nextOffset
 
       const accounts = await getAccounts()
 
@@ -413,9 +391,6 @@ startBtn.onclick = async () => {
         if(historySet.has(userKey)){
           log(`⏭️ Skipped ${m.username || m.user_id}`, userKey, "orange")
           total++; counter.innerText = total
-          if(totalMembers > 0){
-  progress.style.width = Math.min((total / totalMembers) * 100, 100) + "%"
-}
           continue
         }
 
@@ -429,6 +404,7 @@ startBtn.onclick = async () => {
         }
 
         accIndex = acc.index
+
         status.innerText = `Adding: ${m.username || m.user_id}`
         log(`🔹 Using ${acc.id} → ${m.username || m.user_id}`, userKey, "cyan")
 
@@ -445,23 +421,24 @@ startBtn.onclick = async () => {
           })
 
           const result = await addRes.json()
+
           let color = result.status==="success"?"lime":
                       result.status==="failed"?"red":"orange"
-          log(`${u} → ${result.status}`, userKey, color, result.status)
+
+          log(`${m.username || m.user_id} → ${result.status}`, userKey, color)
 
           if(result.status==="success"){
-            const delaySec = 5 + Math.floor(Math.random()*16) // 5–20s random
-            await countdown(delaySec,"Delay")
+            await countdown(20,"Delay")
           }
 
-          total++; counter.innerText = total
-          progress.style.width = Math.min((total / totalMembers) * 100, 100) + "%"
+          total++
+          counter.innerText = total
+          progress.style.width = (total % 100)+"%"
+
         }catch(err){
           log(`❌ Error: ${err.message}`, userKey, "red")
         }
       }
-
-      if(!offset || members.length < 50) break // exit loop if no more members
     }
 
   }
@@ -470,6 +447,7 @@ startBtn.onclick = async () => {
   // 🔹 MODE 2: TEXTAREA (@USERNAME)
   // ===============================
   else{
+
     status.innerText = "Joining target group..."
     await autoJoinAllAccounts(target)
 
@@ -479,7 +457,6 @@ startBtn.onclick = async () => {
       .filter(u => u)
 
     const accounts = await getAccounts()
-    const totalMembers = userList.length
 
     for(const u of userList){
       let userKey = u
@@ -487,11 +464,11 @@ startBtn.onclick = async () => {
       if(historySet.has(userKey)){
         log(`⏭️ Skipped ${u}`, userKey, "orange")
         total++; counter.innerText = total
-        progress.style.width = Math.min((total / totalMembers) * 100, 100) + "%"
         continue
       }
 
       let acc = nextAccount(accounts, accIndex)
+
       while(!acc){
         status.innerText = "Waiting for accounts..."
         await countdown(5,"Waiting account")
@@ -500,6 +477,7 @@ startBtn.onclick = async () => {
       }
 
       accIndex = acc.index
+
       status.innerText = `Adding: ${u}`
       log(`🔹 Using ${acc.id} → ${u}`, userKey, "cyan")
 
@@ -514,17 +492,20 @@ startBtn.onclick = async () => {
         })
 
         const result = await addRes.json()
+
         let color = result.status==="success"?"lime":
                     result.status==="failed"?"red":"orange"
-        log(`${u} → ${result.status}`, userKey, color, result.status)
+
+        log(`${u} → ${result.status}`, userKey, color)
 
         if(result.status==="success"){
-          const delaySec = 5 + Math.floor(Math.random()*16)
-          await countdown(delaySec,"Delay")
+          await countdown(20,"Delay")
         }
 
-        total++; counter.innerText = total
-        progress.style.width = Math.min((total / totalMembers) * 100, 100) + "%"
+        total++
+        counter.innerText = total
+        progress.style.width = (total % 100)+"%"
+
       }catch(err){
         log(`❌ Error: ${err.message}`, userKey, "red")
       }
@@ -535,39 +516,7 @@ startBtn.onclick = async () => {
   status.innerText = "Finished ✅"
 }
 
-function formatTime(sec){
-  const h = Math.floor(sec / 3600)
-  const m = Math.floor((sec % 3600) / 60)
-  const s = sec % 60
 
-  return [
-    h.toString().padStart(2,'0'),
-    m.toString().padStart(2,'0'),
-    s.toString().padStart(2,'0')
-  ].join(':')
-}
-
-function getFinishTime(sec){
-  const now = new Date()
-  const finish = new Date(now.getTime() + sec * 1000)
-  return finish.toLocaleTimeString('en-GB',{hour12:false})
-}
-
-async function countdown(sec,label="Delay"){
-  const finishTime = getFinishTime(sec)
-
-  for(let i=sec;i>0;i--){
-    status.innerText = `${label} ⏳ ${formatTime(i)} (Finish ${finishTime})`
-
-    // color effect
-    status.style.color = i<=10 ? "#ff4c4c" : "#00ff7f"
-
-    await new Promise(r=>setTimeout(r,1000))
-  }
-
-  status.innerText = "Processing..."
-  status.style.color = "#00ff7f"
-}
 </script>
 </div>
 </body>
