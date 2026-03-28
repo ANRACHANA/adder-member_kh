@@ -7,7 +7,8 @@
 <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;}
-body{font-family:'JetBrains Mono',monospace;background:#0d0d1a;color:#fff;margin:0;}
+body{font-family:'JetBrains Mono',monospace;  background: linear-gradient(135deg,#203a43);
+color:#fff;width:100%;}
 .container{max-width:1000px;margin:auto;padding:15px;}
 section{background:linear-gradient(135deg,#047c8ec5,#036158fb);border-radius:20px;padding:20px;margin-bottom:20px;}
 .card-title{font-size:22px;font-weight:700;color:#00ff7f;text-align:center;margin-bottom:10px;}
@@ -555,16 +556,7 @@ startBtn.onclick = async () => {
   loadingBarWrapper.classList.add("hidden")
   status.innerText = "Finished ✅"
 }
-  // Redirect to login if not logged in
-  const user = localStorage.getItem("user");
-  if(!user){
-    alert("Please login first!");
-    window.location.href = "/home.html";
-  }
-  function logout(){
-  localStorage.removeItem("user");
-  window.location.href = "/login.html";
-}
+
 // ===== Countdown Function =====
 async function countdown(seconds, message) {
   for (let i = seconds; i > 0; i--) {
