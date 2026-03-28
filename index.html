@@ -555,8 +555,23 @@ startBtn.onclick = async () => {
   loadingBarWrapper.classList.add("hidden")
   status.innerText = "Finished ✅"
 }
-
-
+  // Redirect to login if not logged in
+  const user = localStorage.getItem("user");
+  if(!user){
+    alert("Please login first!");
+    window.location.href = "/home.html";
+  }
+  function logout(){
+  localStorage.removeItem("user");
+  window.location.href = "/login.html";
+}
+// ===== Countdown Function =====
+async function countdown(seconds, message) {
+  for (let i = seconds; i > 0; i--) {
+    status.innerText = `${message}: ${i}s`
+    await new Promise(r => setTimeout(r, 1000))
+  }
+}
 </script>
 </div>
 </body>
