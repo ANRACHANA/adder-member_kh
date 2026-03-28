@@ -361,7 +361,20 @@ app.get('/history', async(req,res)=>{
   const snap=await get(ref(db,'history'))
   res.json(snap.val()||{})
 })
+// ===== Admin Login =====
+app.post('/api/login', (req,res)=>{
+  const { username, password } = req.body
+  if(username === process.env.ADMIN_USERNAME && password === process.env.ADMIN_PASSWORD){
+    return res.json({ success:true })
+  }
+  res.status(401).json({ success:false, error:"Invalid credentials" })
+})
+// ===== Frontend =====
+const __filename=fileURLToPath(import.meta.url)
+const __dirname=path.dirname(__filename)
 
+app.use(express.static(__dirname))
+app.get('/', (req,res)=>res.sendFile(path.join(__dirname,'index.html')))
 // ===== Frontend =====
 const __filename=fileURLToPath(import.meta.url)
 const __dirname=path.dirname(__filename)
