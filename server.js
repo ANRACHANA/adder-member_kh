@@ -252,10 +252,27 @@ app.post('/members', async (req, res) => {
 })
 
 // ===== Add Member =====
-// ===== Add Member =====
+// ===== Add Member with input validation =====
 app.post('/add-member', async(req,res)=>{
   try{
     let {username,user_id,access_hash,targetGroup}=req.body
+
+    // ===== Input Validation =====
+    if(!username && !user_id){
+      return res.json({
+        status:"failed",
+        reason:"Missing username or user_id",
+        accountUsed:"none"
+      })
+    }
+
+    if(username && !/^@?[a-zA-Z0-9_]+$|https:\/\/t\.me\/[a-zA-Z0-9_]+/.test(username)){
+      return res.json({
+        status:"failed",
+        reason:"Invalid username or link. Use @username or https://t.me/username",
+        accountUsed:"none"
+      })
+    }
 
     const acc=getAvailableAccount()
     if(!acc) return res.json({status:"failed",reason:"All FloodWait",accountUsed:"none"})
@@ -282,7 +299,7 @@ app.post('/add-member', async(req,res)=>{
     }
 
     let status="failed", reason="unknown"
-    let saveHistory = false // 🔹 only save success or FloodWait
+    let saveHistory = false // only save success or FloodWait
 
     try{
       let userEntity
@@ -305,7 +322,7 @@ app.post('/add-member', async(req,res)=>{
 
       status="success"
       reason="joined"
-      saveHistory = true // 🔹 save success
+      saveHistory = true
 
       acc.addCount = (acc.addCount||0)+1
       await update(ref(db,`accounts/${acc.id}`),{addCount:acc.addCount})
@@ -325,14 +342,13 @@ app.post('/add-member', async(req,res)=>{
         })
 
         reason=`FloodWait ${wait}s | Ready ${new Date(until).toLocaleString()}`
-        saveHistory = true // 🔹 save FloodWait
+        saveHistory = true
       }else{
         reason=err.message
-        saveHistory = false // ❌ do NOT save other failed attempts
+        saveHistory = false
       }
     }
 
-    // 🔹 Save history only if success or FloodWait
     if(saveHistory){
       await push(ref(db,'history'),{
         username:cleanUsername || username,
@@ -361,26 +377,6 @@ app.get('/history', async(req,res)=>{
   const snap=await get(ref(db,'history'))
   res.json(snap.val()||{})
 })
-// ===== Admin Login =====
-app.post('/api/login', (req,res)=>{
-  const { username, password } = req.body
-  if(username === process.env.ADMIN_USERNAME && password === process.env.ADMIN_PASSWORD){
-    return res.json({ success:true })
-  }
-  res.status(401).json({ success:false, error:"Invalid credentials" })
-})
-// ===== Frontend =====
-const __filename=fileURLToPath(import.meta.url)
-const __dirname=path.dirname(__filename)
-
-app.use(express.static(__dirname))
-app.get('/', (req,res)=>res.sendFile(path.join(__dirname,'index.html')))
-// ===== Frontend =====
-const __filename=fileURLToPath(import.meta.url)
-const __dirname=path.dirname(__filename)
-
-app.use(express.static(__dirname))
-app.get('/', (req,res)=>res.sendFile(path.join(__dirname,'index.html')))
 
 const PORT=process.env.PORT||3000
 app.listen(PORT,()=>console.log(`🚀 Server running on ${PORT}`))
