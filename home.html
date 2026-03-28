@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Home</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono&display=swap" rel="stylesheet">
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0;font-family:'JetBrains Mono',monospace;}
+body{
+  height:100vh;
+  width:100vw;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+  color:#fff;
+  animation: gradientBG 10s ease infinite;
+  background-size: 600% 600%;
+}
+
+/* Background gradient animation */
+@keyframes gradientBG{
+  0%{background-position:0% 50%;}
+  50%{background-position:100% 50%;}
+  100%{background-position:0% 50%;}
+}
+
+.container{
+  text-align:center;
+  width:100%;
+  max-width:900px;
+  padding:30px;
+}
+
+h1{
+  font-size:48px;
+  color:#00ff7f;
+  margin-bottom:10px;
+  text-shadow:0 0 20px #00ff7f;
+  animation: glow 2s ease-in-out infinite alternate;
+}
+
+@keyframes glow{
+  from {text-shadow:0 0 10px #00ff7f,0 0 20px #00ff7f;}
+  to {text-shadow:0 0 20px #00ff7f,0 0 40px #00ff7f;}
+}
+
+p{
+  color:#ddd;
+  font-size:18px;
+  margin-bottom:40px;
+}
+
+.grid{
+  display:grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap:20px;
+}
+
+/* Buttons */
+button{
+  padding:20px;
+  font-size:18px;
+  font-weight:700;
+  border:none;
+  border-radius:15px;
+  cursor:pointer;
+  transition:0.3s;
+  color:#0d0d1a;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:10px;
+  box-shadow:0 5px 15px rgba(0,0,0,0.3);
+  position:relative;
+  animation: floatBtn 3s ease-in-out infinite alternate;
+}
+
+/* Button floating animation */
+@keyframes floatBtn{
+  0%{transform: translateY(0px);}
+  50%{transform: translateY(-8px);}
+  100%{transform: translateY(0px);}
+}
+
+button:hover{
+  transform: scale(1.05);
+  box-shadow:0 10px 25px rgba(0,0,0,0.5),0 0 15px #00ff7f;
+}
+
+button:active{
+  transform: scale(0.95);
+  box-shadow:0 5px 15px rgba(0,0,0,0.3);
+}
+
+/* Tooltip */
+button[data-tooltip]::after{
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 120%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0,0,0,0.75);
+  color: #fff;
+  padding:5px 10px;
+  border-radius:5px;
+  font-size:14px;
+  opacity:0;
+  white-space: nowrap;
+  pointer-events:none;
+  transition:0.3s;
+}
+button[data-tooltip]:hover::after{
+  opacity:1;
+}
+
+/* Gradient Buttons */
+.btn1{background: linear-gradient(45deg,#00ff7f,#00d4ff);}
+.btn2{background: linear-gradient(45deg,#00c3ff,#0077ff);}
+.btn3{background: linear-gradient(45deg,#ffaa00,#ff4c4c);}
+.btn4{background: linear-gradient(45deg,#ff77ff,#ff44aa);}
+
+/* Modal Styles */
+.modal{
+  position:fixed;
+  top:0; left:0;
+  width:100vw;
+  height:100vh;
+  background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  opacity:0;
+  pointer-events:none;
+  transition:0.3s;
+}
+.modal.active{
+  opacity:1;
+  pointer-events:auto;
+}
+
+.modal-content{
+  background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+  padding:30px;
+  border-radius:15px;
+  max-width:400px;
+  width:90%;
+  text-align:center;
+
+  animation: modalPop 0.4s ease;
+}
+
+@keyframes modalPop{
+  0%{transform: scale(0.5); opacity:0;}
+  100%{transform: scale(1); opacity:1;}
+}
+
+.modal h2{
+  color:#00ff7f;
+  margin-bottom:15px;
+}
+
+.modal p{
+  color:#fff;
+  margin-bottom:20px;
+  font-size:16px;
+}
+
+/* Profile card inside modal */
+.profile-card{
+  background:#ffffff;
+  padding:20px;
+  border-radius:20px;
+  width:300px;
+  text-align:center;
+  color:#000000;
+  box-shadow:0 0 20px #00ff7f,0 0 40px #00d4ff;
+  margin:20px auto;
+}
+.profile-card img{
+  width:100px;
+  height:100px;
+  border-radius:50%;
+  object-fit:cover;
+  margin-bottom:15px;
+}
+.profile-card h2{
+  color:#000000;
+  margin-bottom:5px;
+}
+.profile-card p{
+  color:#696666e9;
+  margin-bottom:10px;
+}
+.profile-card button{
+  padding:10px 20px;
+  border:none;
+  border-radius:10px;
+  background:linear-gradient(45deg,#00a6ff,#097084);
+  color:#ffffff;
+  font-weight:700;
+  cursor:pointer;
+  transition:0.3s;
+}
+.profile-card button:hover{
+  transform: scale(1.05);
+  box-shadow:0 0 15px #00ff7f,0 0 30px #00d4ff;
+}
+
+/* Responsive */
+@media screen and (max-width:480px){
+  h1{font-size:32px;}
+  p{font-size:16px;}
+  button{font-size:16px;padding:15px;}
+  .modal-content{padding:20px;}
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+  <h1>Welcome</h1>
+  <p>Your Animated Home Dashboard PRO+</p>
+
+  <div class="grid">
+  
+    <button class="btn2" onclick="go('/login.html')"data-tooltip="login with your Username +Pass">🔐 🌐 Website</button>
+    <button class="btn3" onclick="openExternal()">🌐 Website</button>
+    <button class="btn4" onclick="openHelp()" data-tooltip="Click here for Help ❓">❓ Help</button>
+  </div>
+</div>
+
+<!-- Help Modal -->
+<div class="modal" id="helpModal">
+  <div class="modal-content">
+    <h2>Need Help? 🤔</h2>
+    <div class="profile-card">
+      <img src="photo_2025-10-12_11-41-04.jpg" alt="An Rachana">
+      <h2>AN RACHANA</h2>
+      <p>@RACHANA0308</p>
+      <p>+85515318660</p>
+      <button onclick="openTelegram()">SEND MESSAGE</button>
+    </div>
+    <button class="close" style="background-color: red;color: white;" onclick="closeHelp()">Close</button>
+  </div>
+</div>
+
+<script>
+function go(link){ window.location.href = link; }
+function openExternal(){ window.open("https://adder-member-tg-2.onrender.com/", "_blank"); }
+
+// Modal open/close
+const helpModal = document.getElementById('helpModal');
+function openHelp(){ helpModal.classList.add('active'); }
+function closeHelp(){ helpModal.classList.remove('active'); }
+
+// Open Telegram link
+function openTelegram(){
+  window.open("https://t.me/RACHANA0308","_blank");
+}
+</script>
+</body>
+</html>

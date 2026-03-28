@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Login</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono&display=swap" rel="stylesheet">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+* { box-sizing: border-box; margin:0; padding:0; }
+body {
+  font-family: 'JetBrains Mono', monospace;
+   background: linear-gradient(135deg,#0f2027,#203a43,#2c5364);
+  color: #fff;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  padding: 10px;
+}
+form {
+  background: linear-gradient(135deg,#047c8ec5,#036158fb);
+  padding: 25px;
+  border-radius: 10px;
+  width: 100%;
+  max-width: 400px;
+}
+h2 {
+  text-align: center;
+  font-size: 24px;
+  color: #00ff7f;
+  margin-bottom: 20px;
+}
+input {
+  display: block;
+  width: 100%;
+  padding: 12px;
+  margin: 10px 0;
+  border-radius: 10px;
+  border: none;
+  background: #353333;
+  color: #fff;
+  font-size: 16px;
+}
+button {
+  width: 100%;
+  padding: 12px;
+  margin-top: 10px;
+  border: none;
+  border-radius: 10px;
+  background: #00ff7f;
+  color: #0d0d1a;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 0.2s;
+}
+button:hover { opacity: 0.85; }
+#error {
+  margin-top: 10px;
+  color: #ff4c4c;
+  font-weight: 700;
+  text-align: center;
+  font-size: 14px;
+}
+
+/* Loading bar animation */
+#loadingBarWrapper {
+  width: 100%;
+  height: 8px;
+  background: #111;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-top: 20px;
+  position: relative;
+}
+#loadingBar {
+  position: absolute;
+  width: 30%;
+  height: 100%;
+  left: -30%;
+  background: linear-gradient(90deg, transparent, #00ff7f, #00fbff, transparent);
+  border-radius: 10px;
+  filter: blur(1px);
+  box-shadow: 0 0 10px #00ff7f, 0 0 20px #d9ff00;
+  animation: moveBar1 1.4s ease-in-out infinite;
+}
+#loadingBar::after {
+  content: "";
+  position: absolute;
+  width: 30%;
+  height: 100%;
+  left: -30%;
+  background: linear-gradient(90deg, transparent, #00e6ff, #00ffcc, transparent);
+  border-radius: 10px;
+  filter: blur(1px);
+  box-shadow: 0 0 10px #00e6ff, 0 0 20px #00ffcc;
+  animation: moveBar2 1.4s ease-in-out infinite;
+  animation-delay: 0.7s;
+}
+@keyframes moveBar1 {
+  0% { left: -30%; opacity: 0; }
+  20% { opacity: 1; }
+  50% { left: 100%; opacity: 1; }
+  100% { left: 100%; opacity: 0; }
+}
+@keyframes moveBar2 {
+  0% { left: -30%; opacity: 0; }
+  20% { opacity: 1; }
+  50% { left: 100%; opacity: 1; }
+  100% { left: 100%; opacity: 0; }
+}
+
+/* ===== Mobile responsive tweaks ===== */
+@media screen and (max-width: 480px) {
+  form { padding: 20px; }
+  h2 { font-size: 20px; }
+  input { font-size: 14px; padding: 10px; }
+  button { font-size: 14px; padding: 10px; }
+  #error { font-size: 12px; }
+  #loadingBarWrapper { height: 6px; }
+  #loadingBar, #loadingBar::after { height: 6px; }
+}
+</style>
+</head>
+<body>
+<form onsubmit="login(event)">
+  <h2>Login</h2>
+  <input id="username" placeholder="Username">
+  <input id="password" type="password" placeholder="Password">
+  <button type="submit">Login</button>
+  <div id="error"></div>
+  <div id="loadingBarWrapper" class="hidden">
+    <div id="loadingBar"></div>
+  </div>
+</form>
+
+<script>
+async function login(e){
+  e.preventDefault();
+  const username = document.getElementById('username').value.trim();
+  const password = document.getElementById('password').value.trim();
+  const errorDiv = document.getElementById('error');
+  const loadingBarWrapper = document.getElementById('loadingBarWrapper');
+
+  errorDiv.innerText = "";
+  if(!username || !password){
+    errorDiv.innerText = "Enter username & password";
+    return;
+  }
+
+  try {
+    loadingBarWrapper.classList.remove('hidden');
+    const res = await fetch('/api/login',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({username,password})
+    });
+    const data = await res.json();
+    loadingBarWrapper.classList.add('hidden');
+
+    if(res.ok && data.success){ 
+      localStorage.setItem("user", username);
+      window.location.href = "/index.html";
+    } else {
+      errorDiv.innerText = data.error || "Login failed";
+    }
+  } catch(err) {
+    loadingBarWrapper.classList.add('hidden');
+    errorDiv.innerText = "Server error";
+    console.error(err);
+  }
+}
+</script>
+</body>
+</html>
