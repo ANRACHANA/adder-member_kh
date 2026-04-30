@@ -133,7 +133,7 @@ async function getClient(account){
     account.api_hash,
     {
       connectionRetries: 5,
-      autoReconnect: true
+      autoReconnect: false
     }
   )
 
@@ -359,23 +359,35 @@ async function autoJoin(client, group){
 }
 
 // ===== Auto Join All =====
+const MAX_JOIN = 3
+
 async function autoJoinAllAccounts(group){
-  for(const acc of accounts){
+  const selected = accounts.slice(0, MAX_JOIN)
+
+  for(const acc of selected){
+    let client = null
     try{
-      const client = await getClient(acc)
+      client = await getClient(acc)
+      if(!client) continue
+
       await autoJoin(client, group)
-      await sleep(1000)
-    }catch(e){}
+
+      await sleep(2000)
+    }catch(e){
+      console.log("join error", acc.phone)
+    }
+
+    try { await client?.disconnect() } catch {}
   }
 }
 
 // ===== Get Members =====
 app.post('/members', async (req, res) => {
   try {
-    let { group, offset = 0, limit = 200 } = req.body
+    let { group, offset = 0, limit = 50 } = req.body
 
     // 🔒 កំណត់ limit អតិបរមា
-    limit = Math.min(limit, 200)
+    limit = Math.min(limit, 50)
 
     const acc = getAvailableAccount()
     if (!acc) {
@@ -404,7 +416,7 @@ app.post('/members', async (req, res) => {
         participants = await client.getParticipants(entity, {
           offset,
           limit,
-          aggressive: true // ⚡ លឿន
+          aggressive: false// ⚡ លឿន
         })
         break
       } catch (e) {
